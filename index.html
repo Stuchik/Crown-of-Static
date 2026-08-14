@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#07100f">
+  <meta name="description" content="Crown of Static — атмосферный браузерный bullet-heaven roguelite.">
+  <title>Crown of Static</title>
+  <link rel="preload" href="assets/ruin-keyart.webp" as="image" type="image/webp">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app">
+    <canvas id="world" aria-label="Игровое поле"></canvas>
+    <div class="noise"></div>
+    <div id="flash"></div>
+
+    <section id="menu" class="screen menu-screen">
+      <div class="menu-art"></div>
+      <div class="menu-shade"></div>
+      <header class="topbar">
+        <div class="sigil"><i></i><span>C/S</span></div>
+        <span class="eyebrow">АРХИВ // ЦИКЛ 01</span>
+        <span class="build">PRELUDE · 0.1</span>
+      </header>
+      <div class="menu-copy">
+        <p class="kicker"><span></span> ДРЕВНИЙ МЕХАНИЗМ ПРОСНУЛСЯ</p>
+        <h1>CROWN<br><em>OF STATIC</em></h1>
+        <p class="lead">Забери силу павших богов-машин. Собери невозможное оружие. Переживи ночь, которая помнит каждый твой шаг.</p>
+        <div class="menu-actions">
+          <button id="start" class="primary"><span>НАЧАТЬ ЦИКЛ</span><b>↗</b></button>
+          <button id="archiveButton" class="ghost">АРХИВ</button>
+          <button id="settingsButton" class="ghost">НАСТРОЙКИ</button>
+        </div>
+      </div>
+      <div class="menu-footer">
+        <span><kbd>WASD</kbd> ДВИЖЕНИЕ</span>
+        <span><kbd>SPACE</kbd> РЫВОК</span>
+        <span><kbd>Q</kbd> ИМПУЛЬС</span>
+        <span><kbd>ESC</kbd> ПАУЗА</span>
+      </div>
+    </section>
+
+    <section id="hud" class="hud hidden" aria-live="polite">
+      <div class="hud-brand"><span>C/S</span><small>ЦИКЛ <b id="wave">01</b></small></div>
+      <div class="timer"><strong id="timer">00:00</strong><small id="phaseName">ВНЕШНИЙ КРУГ</small></div>
+      <div class="hud-right">
+        <div><small>УРОВЕНЬ</small><strong id="level">1</strong></div>
+        <div><small>УНИЧТОЖЕНО</small><strong id="kills">0</strong></div>
+        <button id="pauseButton" aria-label="Пауза">Ⅱ</button>
+      </div>
+    </section>
+
+    <section id="status" class="status hidden">
+      <div class="health-row">
+        <div class="portrait"><span>◈</span></div>
+        <div class="bars">
+          <div class="health"><i id="healthFill"></i><b id="healthText">100 / 100</b></div>
+          <div class="xp"><i id="xpFill"></i></div>
+        </div>
+      </div>
+      <div class="abilities">
+        <div class="ability" id="dashAbility"><span>⇥</span><i></i><b>SPACE</b><small>РЫВОК</small></div>
+        <div class="ability" id="pulseAbility"><span>✦</span><i></i><b>Q</b><small>ИМПУЛЬС</small></div>
+      </div>
+    </section>
+
+    <aside id="buildPanel" class="build-panel hidden">
+      <span class="eyebrow">СБОРКА</span>
+      <div id="buildSlots"></div>
+    </aside>
+
+    <div id="bossBar" class="boss-bar hidden">
+      <div><span id="bossName">АРХОНТ НУЛЯ</span><b id="bossHealthText">100%</b></div>
+      <i><b id="bossHealthFill"></b></i>
+    </div>
+
+    <section id="choice" class="screen choice-screen hidden">
+      <div class="choice-heading">
+        <span class="eyebrow">РЕЗОНАНС ОБНАРУЖЕН</span>
+        <h2 id="choiceTitle">ВЫБЕРИ РЕЛИКВИЮ</h2>
+        <p id="choiceSubtitle">Один выбор останется с тобой до конца цикла.</p>
+      </div>
+      <div id="cards" class="cards"></div>
+      <p class="choice-hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> или нажми на карту</p>
+    </section>
+
+    <section id="pause" class="screen compact-screen hidden">
+      <div class="panel pause-panel">
+        <span class="eyebrow">ЦИКЛ ПРИОСТАНОВЛЕН</span>
+        <h2>ТИШИНА МЕЖДУ УДАРАМИ</h2>
+        <p>Механизм продолжит считать время, когда ты вернёшься.</p>
+        <button id="resume" class="primary"><span>ПРОДОЛЖИТЬ</span><b>↗</b></button>
+        <button id="restart" class="ghost wide">НАЧАТЬ ЗАНОВО</button>
+        <button id="quit" class="text-button">ВЕРНУТЬСЯ В МЕНЮ</button>
+      </div>
+    </section>
+
+    <section id="end" class="screen compact-screen hidden">
+      <div class="panel end-panel">
+        <span id="endEyebrow" class="eyebrow">ЦИКЛ ЗАВЕРШЁН</span>
+        <h2 id="endTitle">КОРOНА ОТВЕРГЛА ТЕБЯ</h2>
+        <p id="endText">Но Архив сохранил всё, чему ты научился.</p>
+        <div class="results">
+          <div><strong id="resultTime">00:00</strong><span>ВРЕМЯ</span></div>
+          <div><strong id="resultKills">0</strong><span>ЦЕЛЕЙ</span></div>
+          <div><strong id="resultEchoes">+0</strong><span>ЭХО</span></div>
+        </div>
+        <button id="again" class="primary"><span>ЕЩЁ ОДИН ЦИКЛ</span><b>↗</b></button>
+        <button id="endMenu" class="text-button">ВЕРНУТЬСЯ В МЕНЮ</button>
+      </div>
+    </section>
+
+    <section id="archive" class="screen compact-screen hidden">
+      <div class="panel archive-panel">
+        <button class="close" data-close="archive" aria-label="Закрыть">×</button>
+        <span class="eyebrow">ПОСТОЯННАЯ ПАМЯТЬ</span>
+        <h2>АРХИВ ЦИКЛОВ</h2>
+        <p>Эхо переживает поражение. Потрать его, чтобы следующий носитель продвинулся дальше.</p>
+        <div class="archive-stats">
+          <div><strong id="totalEchoes">0</strong><span>ДОСТУПНО ЭХО</span></div>
+          <div><strong id="bestTime">00:00</strong><span>ЛУЧШИЙ ЦИКЛ</span></div>
+          <div><strong id="totalKills">0</strong><span>ВСЕГО ЦЕЛЕЙ</span></div>
+        </div>
+        <div id="perks" class="perks"></div>
+      </div>
+    </section>
+
+    <section id="settings" class="screen compact-screen hidden">
+      <div class="panel settings-panel">
+        <button class="close" data-close="settings" aria-label="Закрыть">×</button>
+        <span class="eyebrow">ПАРАМЕТРЫ СИСТЕМЫ</span>
+        <h2>НАСТРОЙКИ</h2>
+        <label><span>Громкость</span><input id="volume" type="range" min="0" max="100" value="65"></label>
+        <label><span>Тряска камеры</span><input id="shake" type="checkbox" checked><i></i></label>
+        <label><span>Интенсивные эффекты</span><input id="effects" type="checkbox" checked><i></i></label>
+        <p>Настройки сохраняются в этом браузере автоматически.</p>
+      </div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+    <div id="announcement" class="announcement"><small></small><strong></strong><p></p></div>
+
+    <div id="touch" class="touch hidden">
+      <div id="joystick" class="joystick"><i></i></div>
+      <button id="touchDash">⇥<small>РЫВОК</small></button>
+      <button id="touchPulse">✦<small>ИМПУЛЬС</small></button>
+    </div>
+  </main>
+  <script type="module" src="src/game.js"></script>
+</body>
+</html>
