@@ -1,53 +1,56 @@
 # Crown of Static
 
-An original browser bullet-heaven roguelite about a forgotten civilization where occult relics and broken machines became the same thing.
+Мрачная браузерная action-roguelite с видом сверху: магия, древние машины, мистическая цивилизация и немного безумного юмора. Версия `0.2` превращает первоначальный бесконечный прототип в полноценную кампанию.
 
-![Crown of Static key art](assets/ruin-keyart.webp)
-
-## Play
-
-Open `index.html` through a local web server:
+## Запуск
 
 ```bash
 npm run serve
 ```
 
-Then visit `http://localhost:4173`.
+Откройте `http://localhost:4173`. Сборка и внешние зависимости не нужны.
 
-## Controls
+## Управление
 
-| Action | Keyboard |
+| Действие | Клавиша |
 | --- | --- |
-| Move | `WASD` or arrow keys |
-| Dash | `Space` |
-| Relic pulse | `Q` |
-| Pause | `Esc` |
-| Pick an upgrade | `1`, `2`, `3` or mouse |
+| Движение | `WASD` или стрелки |
+| Рывок | `Space` |
+| Классовая способность | `Q` |
+| Пауза | `Esc` |
+| Выбор улучшения | `1`, `2`, `3` или мышь |
 
-Touch controls appear automatically on touchscreen devices.
+На сенсорных устройствах автоматически появляются джойстик и кнопки способностей.
 
-## Current build
+## Campaign 0.2
 
-- automatic targeting with a manual dash and defensive pulse;
-- eight upgrade paths and a weapon fusion;
-- three enemy bosses with absorbable abilities;
-- four visual phases that change during a run;
-- permanent Archive upgrades stored locally;
-- procedural sound, particles, camera feedback and responsive controls;
-- no runtime dependencies or build step.
+- 6 уровней длительностью от 3 до 6 минут и ветвящаяся карта с местом для будущих глав;
+- 4 героя с разными характеристиками, автоатаками, способностями и анимациями: Мечник, Лучник, Маг и Механист;
+- разные задания: выживание, активация печатей, охота на элиту, защита ядра и финальная битва;
+- 16 видов оружия и артефактов, 5 секретных слияний и классовые сборки;
+- Книга Архива с вкладками предметов, артефактов, слияний и существ;
+- неизвестные записи скрыты до первой встречи, а эффект слияния — до его создания;
+- постоянное Эхо, улучшения Архива и открытия сохраняются даже при поражении;
+- короткие сюжетные фрагменты, новые боссы, семейства врагов, эффекты попаданий и анимированный Canvas-рендер;
+- бесконечный режим открывается после финала кампании;
+- хард-режим показан в меню как функция будущего обновления.
 
-The browser version is intentionally engine-free. Its systems are separated from rendering so a later desktop build can reuse the same balance and game data.
-
-## Test
+## Проверка
 
 ```bash
 npm test
 ```
 
-## Credits
+Тесты проверяют математику игрового цикла, структуру кампании, рецепты слияний, DOM-контракты и наличие ресурсов.
 
-Design, code and original art direction created for this project. Key art was produced specifically for Crown of Static and is not sourced from another game.
+## Технологии и планы
 
-## License
+Игра написана на нативных HTML, CSS и JavaScript. Игровые данные отделены от логики и рендера, поэтому баланс кампании можно менять без сборщика. Следующая крупная цель — хард-режим, дополнительные главы и упаковка браузерной версии для Windows.
 
-Code is available under the MIT License. The artwork in `assets/` is included for this project and may not be redistributed separately.
+## Авторские материалы
+
+Дизайн, код, визуальное направление и портреты персонажей созданы специально для Crown of Static. Изображения в `assets/` входят в проект и не предназначены для отдельного распространения.
+
+## Лицензия
+
+Код распространяется по лицензии MIT — см. [LICENSE](LICENSE).
