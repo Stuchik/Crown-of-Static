@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chooseUnique, circleHit, formatTime, mulberry32, normalize, phaseAt, spawnInterval, weightedPick, xpForLevel } from '../src/core.js';
+import { absorbDamage, chooseUnique, circleHit, formatTime, mulberry32, normalize, phaseAt, spawnInterval, weightedPick, xpForLevel } from '../src/core.js';
 
 test('formatTime produces a stable game timer', () => {
   assert.equal(formatTime(0), '00:00');
@@ -47,4 +47,12 @@ test('weighted selection is deterministic with a seeded generator', () => {
 test('circle collision includes touching edges', () => {
   assert.equal(circleHit({ x: 0, y: 0, radius: 10 }, { x: 20, y: 0, radius: 10 }), true);
   assert.equal(circleHit({ x: 0, y: 0, radius: 10 }, { x: 21, y: 0, radius: 10 }), false);
+});
+
+test('shield absorbs damage before an objective loses health', () => {
+  const target = { hp: 100, shield: 30 };
+  assert.equal(absorbDamage(target, 20), 0);
+  assert.deepEqual(target, { hp: 100, shield: 10 });
+  assert.equal(absorbDamage(target, 25), 15);
+  assert.deepEqual(target, { hp: 85, shield: 0 });
 });

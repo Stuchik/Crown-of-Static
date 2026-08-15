@@ -63,3 +63,11 @@ test('minimap deliberately renders important markers without iterating experienc
   assert.match(minimap, /enemy\.bossData \|\| enemy\.elite/);
   assert.doesNotMatch(minimap, /game\.shards/);
 });
+
+test('foundry defense sends ranged pressure at the player, not the crystal', () => {
+  assert.match(source, /objective === 'defense' && \(!enemy\.siege \|\| enemy\.ranged \|\| enemy\.bossData\)/);
+  assert.match(source, /shot\.targetCore && circleHit\(shot, target\)/);
+  assert.match(source, /core\.shield \+ dt/);
+  assert.match(source, /enemy\.objectiveTarget \|\| enemy\.siege/);
+  assert.match(source, /\+\+enemy\.siegeHits >= 2/);
+});

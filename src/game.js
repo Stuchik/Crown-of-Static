@@ -1,6 +1,6 @@
 import { AudioEngine } from './audio.js';
 import { BOSSES, CLASSES, ENEMIES, EVENTS, FUSIONS, META_PERKS, SPECIALIZATIONS, STAGES, UPGRADES } from './data.js';
-import { TAU, chooseUnique, circleHit, clamp, distanceSq, formatTime, normalize, spawnInterval, weightedPick, xpForLevel } from './core.js';
+import { TAU, absorbDamage, chooseUnique, circleHit, clamp, distanceSq, formatTime, normalize, spawnInterval, weightedPick, xpForLevel } from './core.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('world');
@@ -299,9 +299,9 @@ function createGame() {
   const hero = CLASSES[selectedClass]; const spec = SPECIALIZATIONS[selectedClass][selectedSpec]; const stage = selectedStage || STAGES[0]; const metaHealth = (save.perks.vitality || 0) * 5;
   const upgrades = Object.fromEntries(Object.keys(UPGRADES).map(id => [id, 0])); upgrades[hero.primary] = 1;
   const seals = [{ x: -520, y: -180, charge: 0 }, { x: 430, y: -310, charge: 0 }, { x: 270, y: 430, charge: 0 }];
-  const hard = difficulty === 'hard'; const eventId = save.nextRunEvent; save.nextRunEvent = null; persist();
+  const hard = difficulty === 'hard'; const eventId = save.nextRunEvent; const coreHealth = 760 + stage.number * 45; save.nextRunEvent = null; persist();
   const state = {
-    stage, classId: selectedClass, specId: selectedSpec, hero, spec, difficulty, eventId, time: 0, spawnClock: .5, attackClock: .2, thornClock: 2, stormClock: 1.2,
+    stage, classId: selectedClass, specId: selectedSpec, hero, spec, difficulty, eventId, time: 0, spawnClock: stage.objective === 'defense' ? 2.2 : .5, attackClock: .2, thornClock: 2, stormClock: 1.2,
     mineClock: 2.5, frostClock: 3, recoveryClock: 18, pendingLevels: 0, ended: false, upgrades, fusions: new Set(),
     player: {
       x: stage.objective === 'defense' ? 110 : 0, y: 0, radius: 15, facing: 0, hp: hero.hp + metaHealth, maxHp: hero.hp + metaHealth,
@@ -312,7 +312,7 @@ function createGame() {
     },
     enemies: [], projectiles: [], hostile: [], shards: [], drops: [], particles: [], effects: [], numbers: [], mines: [], hazards: [],
     kills: 0, activeBoss: null, bossSpawned: false, camera: { x: 0, y: 0, shake: 0 }, seals,
-    elitesKilled: 0, elitesSpawned: 0, nextElite: 34, core: { x: 0, y: 0, radius: 34, hp: 520 + stage.number * 35, maxHp: 520 + stage.number * 35 },
+    elitesKilled: 0, elitesSpawned: 0, nextElite: 34, core: { x: 0, y: 0, radius: 34, hp: coreHealth, maxHp: coreHealth, shield: 180, maxShield: 180, lastDamage: -99 },
     portals: [], escort: { x: -560, y: 0, radius: 32, hp: 720, maxHp: 720, progress: 0 }, zone: { x: 0, y: 0, radius: 145, charge: 0, moveClock: 22 },
     parts: [{ x: -480, y: -260 }, { x: 470, y: -250 }, { x: -330, y: 430 }, { x: 430, y: 380 }], tracks: [], objectiveCount: 0,
     nextBossAt: stage.endless ? (hard ? 140 : 180) : 0, storyStep: 0, endReward: 0, victory: false, invertControls: 0, lockedUpgrade: null, lockedTimer: 0,
@@ -411,14 +411,16 @@ function spawnEnemy(type = selectEnemyType(), options = {}) {
   const angle = Math.random() * TAU; const margin = Math.max(width, height) * .65 + 100;
   const data = options.boss || ENEMIES[type]; const rank = stageRank(); const timeScale = 1 + game.time * .00125;
   const hard = game.difficulty === 'hard'; const scale = (options.boss ? 1 + Math.max(0, rank - 1) * .08 : (1 + Math.max(0, rank - 1) * .14) * timeScale) * (hard ? 1.45 : 1);
-  const anchor = game.stage.objective === 'defense' && Math.random() < .68 ? game.core : game.player;
+  const siegeChance = game.core.hp < game.core.maxHp * .45 ? .2 : .4;
+  const siegeSpawn = game.stage.objective === 'defense' && !data.ranged && !options.boss && Math.random() < siegeChance;
+  const anchor = siegeSpawn ? game.core : game.player;
   const enemy = {
     id: options.bossId || type, type: options.boss ? 'boss' : type, shape: options.boss ? 'boss' : data.shape,
     x: anchor.x + Math.cos(angle) * margin, y: anchor.y + Math.sin(angle) * margin, radius: data.radius,
     hp: data.hp * scale * (options.elite ? 3.3 : 1), maxHp: data.hp * scale * (options.elite ? 3.3 : 1),
     speed: data.speed * Math.min(1.38, 1 + game.time * .00075) * (hard ? 1.18 : 1), damage: data.damage * (1 + Math.max(0, rank - 1) * .055) * (hard ? 1.15 : 1),
     xp: (data.xp || 20) * (options.elite ? 5 : 1), color: data.color, ranged: data.ranged || Boolean(options.boss), charger: data.charger,
-    bossData: options.boss || null, elite: Boolean(options.elite), support: data.support, hit: 0, contact: 0, haloHit: 0, slow: 0,
+    bossData: options.boss || null, elite: Boolean(options.elite), siege: siegeSpawn, siegeHits: 0, support: data.support, hit: 0, contact: 0, haloHit: 0, slow: 0,
     knockX: 0, knockY: 0, age: 0, attack: .8 + Math.random() * 1.2, charge: 1.7 + Math.random() * 2, supportClock: 2 + Math.random(), cloneClock: 8,
     spawn: .35, phase: Math.random() * TAU, bossPhase: 1, patternClock: 3.5, modifier: options.elite && hard ? ['swift', 'warded', 'volatile'][Math.floor(Math.random() * 3)] : null
   };
@@ -546,13 +548,21 @@ function killEnemy(enemy) {
     else finishRun(true);
     return;
   }
-  game.kills++; save.enemyKills[enemy.id] = (save.enemyKills[enemy.id] || 0) + 1; if (game.specId === 'executioner') game.player.momentum = Math.min(game.upgrades.momentum >= 2 ? 3 : 1, (game.player.momentum || 0) + 1);
+  game.kills++; save.enemyKills[enemy.id] = (save.enemyKills[enemy.id] || 0) + 1; if (game.stage.objective === 'defense' && game.kills % 18 === 0) repairCore(); if (game.specId === 'executioner') game.player.momentum = Math.min(game.upgrades.momentum >= 2 ? 3 : 1, (game.player.momentum || 0) + 1);
   if (enemy.modifier === 'volatile') game.effects.push({ type: 'danger', x: enemy.x, y: enemy.y, radius: 72, warning: .65, pulse: 0, life: 2.2, maxLife: 2.2, color: '#e67b61' });
   if (enemy.elite) { game.elitesKilled++; if (game.upgrades.recovery >= 3) healPlayer(8); }
   const shardCount = enemy.elite ? 5 : enemy.xp >= 4 ? 2 : 1;
   for (let index = 0; index < shardCount; index++) game.shards.push({ x: enemy.x + (Math.random() - .5) * 18, y: enemy.y + (Math.random() - .5) * 18, radius: 4, value: enemy.xp / shardCount, age: 0, vx: (Math.random() - .5) * 45, vy: (Math.random() - .5) * 45 });
   rollDrop(enemy);
   audio.hit();
+}
+
+function repairCore() {
+  const core = game.core;
+  if (core.shield < core.maxShield) core.shield = Math.min(core.maxShield, core.shield + 28);
+  else core.hp = Math.min(core.maxHp, core.hp + 8);
+  game.effects.push({ type: 'block', x: core.x, y: core.y, radius: 82, life: .45, maxLife: .45, color: '#67e1c1' });
+  game.numbers.push({ x: core.x, y: core.y - 58, text: '+ЗАЩИТА', life: .75, color: '#76e5c4' });
 }
 
 function rollDrop(enemy) {
@@ -594,7 +604,7 @@ function update(dt) {
   if (game.spawnClock <= 0 && game.enemies.length < 125) {
     const rank = stageRank(); const openPortals = game.stage.objective === 'portals' ? game.enemies.filter(enemy => enemy.objectiveTarget && !enemy.dead).length : 0; const batch = (game.time > 150 && Math.random() < .24 ? 2 : 1) + (openPortals && Math.random() < openPortals * .1 ? 1 : 0);
     for (let index = 0; index < batch; index++) spawnEnemy();
-    game.spawnClock = spawnInterval(game.time) * Math.max(.55, 1.08 - rank * .055) * (game.activeBoss ? 1.9 : 1);
+    game.spawnClock = spawnInterval(game.time) * Math.max(.55, 1.08 - rank * .055) * (game.activeBoss ? 1.9 : 1) * (game.stage.objective === 'defense' ? 1.28 : 1);
   }
   game.attackClock -= dt; if (game.attackClock <= 0) autoAttack(); updateSharedWeapons(dt);
   updateMines(dt); updateEffects(dt); updateProjectiles(dt); updateEnemies(dt); updateHostile(dt); updateShards(dt); updateDrops(dt); updateParticles(dt);
@@ -614,7 +624,11 @@ function updateObjective(dt) {
     game.elitesSpawned++; game.nextElite += stage.duration * .22; const elite = spawnEnemy(stage.enemies[(game.elitesSpawned - 1) % stage.enemies.length], { elite: true });
     game.effects.push({ type: 'mark', target: elite, life: 5, maxLife: 5, color: stage.accent }); announce('СИГНАТУРА ОБНАРУЖЕНА', `ЭЛИТА ${game.elitesSpawned} ИЗ 3`, 'Отмеченная цель несёт ключ к стражу.', 1700);
   }
-  if (stage.objective === 'defense' && game.core.hp <= 0) { finishRun(false, 'Искра погасла. Открытия сохранены, уровень можно повторить.'); return; }
+  if (stage.objective === 'defense') {
+    const core = game.core;
+    if (game.time - core.lastDamage > 5) core.shield = Math.min(core.maxShield, core.shield + dt * (game.difficulty === 'hard' ? 8 : 14));
+    if (core.hp <= 0) { finishRun(false, 'Искра погасла. Открытия сохранены, уровень можно повторить.'); return; }
+  }
   if (stage.objective === 'escort') {
     const machine = game.escort; if (distanceSq(player, machine) < 230 ** 2) machine.progress = Math.min(1, machine.progress + dt / (stage.duration - lead - 18));
     machine.x = -560 + machine.progress * 1120; machine.y = Math.sin(machine.progress * Math.PI * 3) * 170;
@@ -667,7 +681,9 @@ function updateEnemies(dt) {
     if (enemy.support === 'clone') {
       enemy.cloneClock -= dt; if (enemy.cloneClock <= 0 && game.enemies.length < 115) { enemy.cloneClock = 9; const copy = spawnEnemy(game.stage.enemies.find(id => id !== 'mirror') || 'husk'); copy.x = enemy.x + 30; copy.y = enemy.y + 20; copy.hp *= .42; copy.maxHp = copy.hp; copy.xp = 0; copy.support = null; copy.clone = true; }
     }
-    let target = coreTarget || p; if (coreTarget && distanceSq(enemy, p) < 190 ** 2) target = p;
+    let target = coreTarget || p;
+    if (game.stage.objective === 'defense' && (!enemy.siege || enemy.ranged || enemy.bossData)) target = p;
+    else if (coreTarget && distanceSq(enemy, p) < 190 ** 2) target = p;
     const direction = normalize(target.x - enemy.x, target.y - enemy.y); const commanded = game.enemies.some(other => other !== enemy && !other.dead && other.support === 'command' && distanceSq(other, enemy) < 190 ** 2); let speed = enemy.speed * (enemy.slow > 0 ? .48 : 1) * (commanded ? 1.2 : 1);
     if (enemy.charger && enemy.charge <= 0) { enemy.charge = 3.4; speed *= 4.5; game.effects.push({ type: 'trail', x: enemy.x, y: enemy.y, angle: Math.atan2(direction.y, direction.x), life: .4, maxLife: .4, color: enemy.color }); }
     if (enemy.bossData) speed *= 1 + Math.sin(enemy.age * 2.2) * .12;
@@ -684,7 +700,10 @@ function updateEnemies(dt) {
       }
     }
     if (circleHit(enemy, p) && enemy.contact <= 0) { enemy.contact = .8; damagePlayer(enemy.damage); const away = normalize(p.x - enemy.x, p.y - enemy.y); p.x += away.x * 18; p.y += away.y * 18; }
-    if (coreTarget && target === coreTarget && circleHit(enemy, coreTarget) && enemy.contact <= 0) { enemy.contact = 1; coreTarget.hp -= enemy.damage; game.camera.shake = 5; if (coreTarget.hp <= 0) finishRun(false, 'Искра погасла. Открытия сохранены, уровень можно повторить.'); }
+    if (coreTarget && target === coreTarget && circleHit(enemy, coreTarget) && enemy.contact <= 0) {
+      enemy.contact = coreTarget === game.core ? 1.35 : 1; damageObjective(coreTarget, enemy.damage * (coreTarget === game.core ? .75 : 1));
+      if (coreTarget === game.core) { const away = normalize(enemy.x - coreTarget.x, enemy.y - coreTarget.y); enemy.x += away.x * 28; enemy.y += away.y * 28; if (++enemy.siegeHits >= 2) enemy.siege = false; }
+    }
   }
   game.enemies = game.enemies.filter(enemy => !enemy.dead);
 }
@@ -751,9 +770,15 @@ function updateHostile(dt) {
   for (const shot of game.hostile) {
     shot.life -= dt; shot.x += shot.vx * dt; shot.y += shot.vy * dt;
     if (circleHit(shot, p)) { shot.life = 0; damagePlayer(shot.damage); if (shot.silence) { p.abilityCooldown = Math.max(p.abilityCooldown, 3.5); toast('СПОСОБНОСТЬ ЗАГЛУШЕНА'); } }
-    else { const target = game.stage.objective === 'defense' ? game.core : game.stage.objective === 'escort' ? game.escort : null; if (target && circleHit(shot, target)) { shot.life = 0; target.hp -= shot.damage * .7; } }
+    else { const target = game.stage.objective === 'defense' ? game.core : game.stage.objective === 'escort' ? game.escort : null; if (target && shot.targetCore && circleHit(shot, target)) { shot.life = 0; damageObjective(target, shot.damage * .7); } }
   }
   game.hostile = game.hostile.filter(shot => shot.life > 0);
+}
+
+function damageObjective(target, amount) {
+  if (target === game.core) { absorbDamage(target, amount); target.lastDamage = game.time; }
+  else target.hp = Math.max(0, target.hp - amount);
+  game.camera.shake = 5;
 }
 
 function updateHalo(dt) {
@@ -895,7 +920,7 @@ function missionState() {
   if (game.activeBoss) return { text: `ПОБЕДИТЬ: ${game.activeBoss.bossData.name}`, progress: clamp(game.activeBoss.hp / game.activeBoss.maxHp, 0, 1) };
   if (stage.objective === 'seals') { const complete = game.seals.filter(seal => seal.charge >= 1).length; return { text: `ПЕЧАТИ ${complete}/3 // ${formatTime(remaining)}`, progress: game.seals.reduce((sum, seal) => sum + seal.charge, 0) / 3 }; }
   if (stage.objective === 'hunt') return { text: `ЭЛИТНЫЕ ЦЕЛИ ${game.elitesKilled}/3 // ${formatTime(remaining)}`, progress: game.elitesKilled / 3 };
-  if (stage.objective === 'defense') return { text: `ИСКРА ${Math.ceil(game.core.hp / game.core.maxHp * 100)}% // ${formatTime(remaining)}`, progress: clamp(game.core.hp / game.core.maxHp, 0, 1) };
+  if (stage.objective === 'defense') return { text: `ИСКРА ${Math.ceil(game.core.hp / game.core.maxHp * 100)}% · ЩИТ ${Math.ceil(game.core.shield / game.core.maxShield * 100)}% // ${formatTime(remaining)}`, progress: clamp(game.core.hp / game.core.maxHp, 0, 1) };
   if (stage.objective === 'portals') return { text: `ПОРТАЛЫ ${game.objectiveCount}/4 // ${formatTime(remaining)}`, progress: game.objectiveCount / 4 };
   if (stage.objective === 'escort') return { text: `МАШИНА ${Math.ceil(game.escort.hp / game.escort.maxHp * 100)}% // ПУТЬ ${Math.floor(game.escort.progress * 100)}%`, progress: game.escort.progress };
   if (stage.objective === 'zone') return { text: `СВЕТ ${Math.floor(game.zone.charge * 100)}% // ${formatTime(remaining)}`, progress: game.zone.charge };
@@ -981,7 +1006,8 @@ function drawObjectives() {
     ctx.rotate(Math.PI / 4); ctx.strokeRect(-31, -31, 62, 62); ctx.rotate(-Math.PI / 4); ctx.fillStyle = seal.charge >= 1 ? game.stage.accent : '#263a32'; ctx.font = '25px Bahnschrift Condensed'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(seal.charge >= 1 ? '✦' : '◇', 0, 1); ctx.restore();
   }
   if (game.stage.objective === 'defense') {
-    const core = game.core; const ratio = clamp(core.hp / core.maxHp, 0, 1); ctx.save(); ctx.translate(core.x, core.y); ctx.rotate(game.time * .22);
+    const core = game.core; const ratio = clamp(core.hp / core.maxHp, 0, 1); const shield = clamp(core.shield / core.maxShield, 0, 1); ctx.save(); ctx.translate(core.x, core.y);
+    ctx.strokeStyle = `rgba(103,225,193,${.12 + shield * .72})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 69, -Math.PI / 2, -Math.PI / 2 + TAU * shield); ctx.stroke(); ctx.rotate(game.time * .22);
     ctx.strokeStyle = `rgba(225,174,90,${.25 + ratio * .5})`; ctx.lineWidth = 2; for (let ring = 0; ring < 3; ring++) { ctx.rotate(ring * .45); ctx.strokeRect(-42 - ring * 9, -42 - ring * 9, 84 + ring * 18, 84 + ring * 18); }
     ctx.rotate(-game.time * .22); const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 48); glow.addColorStop(0, `rgba(255,225,145,${ratio})`); glow.addColorStop(1, 'transparent'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, 48, 0, TAU); ctx.fill(); ctx.fillStyle = '#e3b45e'; ctx.font = '27px Bahnschrift Condensed'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✦', 0, 0); ctx.restore();
   }
@@ -1026,7 +1052,7 @@ function drawEnemy(enemy) {
   ctx.save(); ctx.translate(enemy.x, enemy.y + bob); ctx.scale(scale, scale); if (enemy.elite) { ctx.strokeStyle = `${enemy.color}88`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, enemy.radius + 9 + Math.sin(game.time * 4) * 2, 0, TAU); ctx.stroke(); }
   ctx.fillStyle = 'rgba(0,0,0,.48)'; ctx.beginPath(); ctx.ellipse(0, enemy.radius * .72, enemy.radius * .95, enemy.radius * .38, 0, 0, TAU); ctx.fill();
   ctx.globalAlpha = enemy.hit > 0 ? .72 : 1; if (enemy.bossData) drawBoss(enemy); else drawEnemyShape(enemy); ctx.globalAlpha = 1;
-  if (enemy.elite) { ctx.fillStyle = '#edc06e'; ctx.font = 'bold 10px Segoe UI'; ctx.textAlign = 'center'; ctx.fillText('◆', 0, -enemy.radius - 12); }
+  if (enemy.elite || enemy.siege) { ctx.fillStyle = enemy.elite ? '#edc06e' : '#ef9858'; ctx.font = 'bold 10px Segoe UI'; ctx.textAlign = 'center'; ctx.fillText(enemy.elite ? '◆' : '▼', 0, -enemy.radius - 12); }
   if (enemy.elite || enemy.bossData) { ctx.fillStyle = '#17211d'; ctx.fillRect(-enemy.radius, enemy.radius + 8, enemy.radius * 2, 3); ctx.fillStyle = enemy.color; ctx.fillRect(-enemy.radius, enemy.radius + 8, enemy.radius * 2 * clamp(enemy.hp / enemy.maxHp, 0, 1), 3); }
   ctx.restore();
 }
@@ -1087,7 +1113,7 @@ function drawMinimap() {
   ctx.strokeStyle = 'rgba(116,164,146,.12)'; ctx.beginPath(); ctx.moveTo(x + size / 2, y + 6); ctx.lineTo(x + size / 2, y + size - 18); ctx.moveTo(x + 6, y + (size - 12) / 2); ctx.lineTo(x + size - 6, y + (size - 12) / 2); ctx.stroke();
   const plot = (point, color, radius, square = false) => { const dx = clamp((point.x - p.x) / range, -.5, .5) * inner; const dy = clamp((point.y - p.y) / range, -.5, .5) * inner; const px = x + size / 2 + dx; const py = y + (size - 12) / 2 + dy; ctx.fillStyle = color; if (square) ctx.fillRect(px - radius, py - radius, radius * 2, radius * 2); else { ctx.beginPath(); ctx.arc(px, py, radius, 0, TAU); ctx.fill(); } };
   for (const drop of game.drops) plot(drop, drop.type === 'magnet' ? '#72c8ef' : '#e8b65e', 2.8, drop.type === 'scrap');
-  for (const enemy of game.enemies) if (enemy.bossData || enemy.elite || enemy.objectiveTarget) plot(enemy, enemy.bossData ? '#ee725f' : enemy.objectiveTarget ? game.stage.accent : '#e8bd65', enemy.bossData ? 4 : 2.5, enemy.elite);
+  for (const enemy of game.enemies) if (enemy.bossData || enemy.elite || enemy.objectiveTarget || enemy.siege) plot(enemy, enemy.bossData ? '#ee725f' : enemy.siege ? '#ef9858' : enemy.objectiveTarget ? game.stage.accent : '#e8bd65', enemy.bossData ? 4 : 2.5, enemy.elite || enemy.siege);
   if (game.stage.objective === 'escort') plot(game.escort, game.stage.accent, 3, true); if (game.stage.objective === 'zone') plot(game.zone, game.stage.accent, 3);
   ctx.fillStyle = game.spec.accent; ctx.translate(x + size / 2, y + (size - 12) / 2); ctx.rotate(p.facing); ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore();
   ctx.save(); ctx.fillStyle = '#72877e'; ctx.font = '700 6px Segoe UI'; ctx.textAlign = 'left'; ctx.fillText('КАРТА · XP СКРЫТ', x + 7, y + size - 6); ctx.restore();

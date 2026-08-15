@@ -52,6 +52,13 @@ export function circleHit(a, b) {
   return distanceSq(a, b) <= radius * radius;
 }
 
+export function absorbDamage(target, amount) {
+  const blocked = Math.min(target.shield || 0, amount);
+  target.shield = Math.max(0, (target.shield || 0) - blocked);
+  target.hp = Math.max(0, target.hp - amount + blocked);
+  return amount - blocked;
+}
+
 export function mulberry32(seed) {
   return function random() {
     seed |= 0;
