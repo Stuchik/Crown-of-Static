@@ -20,7 +20,7 @@
       <header class="topbar">
         <div class="sigil"><i></i><span>C/S</span></div>
         <span class="eyebrow">АРХИВ // ПРОТОКОЛ ПРОБУЖДЕНИЯ</span>
-        <span class="build">CAMPAIGN · 0.2</span>
+        <span class="build">CAMPAIGN · 0.3</span>
       </header>
       <div class="menu-copy">
         <p class="kicker"><span></span> ДРЕВНИЙ МЕХАНИЗМ ВЫБИРАЕТ НОСИТЕЛЯ</p>
@@ -29,7 +29,7 @@
         <div class="menu-actions main-actions">
           <button id="campaignButton" class="primary"><span>КАМПАНИЯ</span><b>↗</b></button>
           <button id="endlessButton" class="mode-button locked"><i>∞</i><span>БЕСКОНЕЧНЫЙ<small id="endlessState">ЗАВЕРШИ КАМПАНИЮ</small></span></button>
-          <button id="hardButton" class="mode-button locked" disabled><i>◆</i><span>ХАРД-РЕЖИМ<small>В РАЗРАБОТКЕ</small></span></button>
+          <button id="hardButton" class="mode-button"><i>◆</i><span>ХАРД-РЕЖИМ<small id="hardState">НОВЫЕ ПРАВИЛА</small></span></button>
         </div>
         <div class="menu-actions secondary-actions">
           <button id="bookButton" class="ghost">КНИГА <b id="menuBookProgress">0%</b></button>
@@ -44,7 +44,7 @@
       <header class="hub-header">
         <button class="back-button" data-back="menu">← <span>ГЛАВНОЕ МЕНЮ</span></button>
         <div><span class="eyebrow">КАРТА РАСКОЛОТОГО МИРА</span><h2>КАМПАНИЯ</h2></div>
-        <div class="hub-progress"><span>ОСВОБОЖДЕНО</span><strong id="campaignProgress">0 / 6</strong></div>
+        <div class="hub-progress"><span id="campaignMode">ОСВОБОЖДЕНО</span><strong id="campaignProgress">0 / 12</strong></div>
       </header>
       <div class="campaign-layout">
         <div class="map-frame"><div class="map-grid"></div><svg id="campaignLinks" class="campaign-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div id="campaignNodes" class="campaign-nodes"></div><div class="map-legend"><span><i class="available"></i> ДОСТУПНО</span><span><i class="complete"></i> ПРОЙДЕНО</span><span><i></i> ЗАКРЫТО</span></div></div>
@@ -63,8 +63,11 @@
         <div class="hub-progress"><span>ЗАДАНИЕ</span><strong id="selectedStageObjective">ВЫЖИТЬ</strong></div>
       </header>
       <div id="classCards" class="class-cards"></div>
-      <footer class="class-footer"><div><span class="eyebrow">ВЫБРАН</span><strong id="chosenClassName">МЕЧНИК</strong><p id="chosenClassAbility">Круговой разрез отражает вражеские снаряды.</p></div><button id="startStage" class="primary"><span>ВОЙТИ В СЕКТОР</span><b>↗</b></button></footer>
+      <section class="spec-section"><div class="spec-heading"><span class="eyebrow">СПЕЦИАЛИЗАЦИЯ ДО ЗАБЕГА</span><strong id="chosenSpecName">СТРАЖ</strong></div><div id="specCards" class="spec-cards"></div></section>
+      <footer class="class-footer"><div><span class="eyebrow">ВЫБРАН</span><strong id="chosenClassName">МЕЧНИК // СТРАЖ</strong><p id="chosenClassAbility">Круговой разрез отражает вражеские снаряды.</p></div><button id="startStage" class="primary"><span>ВОЙТИ В СЕКТОР</span><b>↗</b></button></footer>
     </section>
+
+    <section id="event" class="screen event-screen hidden"><div class="event-heading"><span class="eyebrow">ПУТЬ МЕЖДУ СЕКТОРАМИ</span><h2>ВЫБЕРИ ОДНО СОБЫТИЕ</h2><p>Остальные сигналы исчезнут. Эффект сработает на следующем уровне.</p></div><div id="eventCards" class="event-cards"></div></section>
 
     <section id="book" class="screen book-screen hidden">
       <header class="hub-header book-header">
@@ -72,7 +75,7 @@
         <div><span class="eyebrow">ВОССТАНОВЛЕННАЯ ПАМЯТЬ</span><h2>КНИГА АРХИВА</h2></div>
         <div class="book-progress"><span><b id="bookFound">0</b> / <b id="bookTotal">0</b></span><i><b id="bookProgressFill"></b></i><small>ОТКРЫТО</small></div>
       </header>
-      <nav id="bookTabs" class="book-tabs" aria-label="Разделы книги"><button data-tab="weapons" class="active">ОРУЖИЕ <b>0/0</b></button><button data-tab="artifacts">АРТЕФАКТЫ <b>0/0</b></button><button data-tab="fusions">СЛИЯНИЯ <b>0/0</b></button><button data-tab="enemies">СУЩЕСТВА <b>0/0</b></button></nav>
+      <nav id="bookTabs" class="book-tabs" aria-label="Разделы книги"><button data-tab="weapons" class="active">ОРУЖИЕ <b>0/0</b></button><button data-tab="artifacts">АРТЕФАКТЫ <b>0/0</b></button><button data-tab="talents">ТАЛАНТЫ <b>0/0</b></button><button data-tab="fusions">СЛИЯНИЯ <b>0/0</b></button><button data-tab="enemies">СУЩЕСТВА <b>0/0</b></button><button data-tab="bosses">БОССЫ <b>0/0</b></button><button data-tab="heroes">ГЕРОИ <b>0/0</b></button><button data-tab="builds">СБОРКИ <b>0/0</b></button></nav>
       <div class="book-body"><div class="book-index"><div id="bookGrid" class="book-grid"></div></div><article id="bookDetail" class="book-detail"></article></div>
     </section>
 
@@ -88,7 +91,7 @@
       <div class="abilities"><div class="ability" id="dashAbility"><span>⇥</span><i></i><b>SPACE</b><small>РЫВОК</small></div><div class="ability" id="classAbility"><span id="abilityIcon">✦</span><i></i><b>Q</b><small id="abilityName">СПОСОБНОСТЬ</small></div></div>
     </section>
 
-    <aside id="buildPanel" class="build-panel hidden"><span class="eyebrow">СБОРКА</span><div id="buildSlots"></div></aside>
+    <aside id="buildPanel" class="build-panel hidden"><span class="eyebrow">СБОРКА</span><div id="buildSlots"></div><div id="pinnedRecipe" class="pinned-recipe hidden"></div></aside>
     <div id="bossBar" class="boss-bar hidden"><div><span id="bossName">АРХОНТ НУЛЯ</span><b id="bossHealthText">100%</b></div><i><b id="bossHealthFill"></b></i></div>
 
     <section id="choice" class="screen choice-screen hidden"><div class="choice-heading"><span class="eyebrow">РЕЗОНАНС ОБНАРУЖЕН</span><h2 id="choiceTitle">ВЫБЕРИ РЕЛИКВИЮ</h2><p id="choiceSubtitle">Найденная запись навсегда появится в Книге.</p></div><div id="cards" class="cards"></div><p class="choice-hint"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> или нажми на карту</p></section>

@@ -21,40 +21,80 @@ export const CLASSES = {
   }
 };
 
+export const SPECIALIZATIONS = {
+  swordsman: {
+    guardian: { name: 'Страж', title: 'Неподвижная клятва', icon: '⬡', accent: '#79d7be', description: 'Отражает часть урона и лучше удерживает толпу.', armor: .1 },
+    executioner: { name: 'Палач', title: 'Последний приговор', icon: '✦', accent: '#ed8b62', description: 'Медленнее, но наносит тяжёлые размашистые удары.', damage: 1.16, speed: .94 }
+  },
+  archer: {
+    hunter: { name: 'Охотник', title: 'Метка без промаха', icon: '⌖', accent: '#efb15b', description: 'Особенно опасен против элиты и боссов.', eliteDamage: 1.28 },
+    stormshot: { name: 'Штормовой стрелок', title: 'Тетива грозы', icon: 'ϟ', accent: '#68cfee', description: 'Стрелы проводят разряды между ближайшими целями.', chainChance: .24 }
+  },
+  mage: {
+    riftkeeper: { name: 'Хранитель разлома', title: 'Геометр тишины', icon: '◉', accent: '#9c89ef', description: 'Создаёт более крупные и долгие области контроля.', riftScale: 1.3 },
+    battlemage: { name: 'Боевой маг', title: 'Формула удара', icon: '✹', accent: '#e67eb8', description: 'Сферы взрываются, но теряют один скачок.', blast: true }
+  },
+  mechanist: {
+    engineer: { name: 'Инженер', title: 'Полевой протокол', icon: '⚒', accent: '#e4ae65', description: 'Усиливает мины, турели и лечение от Scrap.', scrapBonus: 1.35 },
+    swarm: { name: 'Повелитель роя', title: 'Единый прицел', icon: '⌬', accent: '#5ce0c1', description: 'Начинает забег с дополнительным боевым дроном.', drones: 1 }
+  }
+};
+
 export const STAGES = [
   {
     id: 'outer-ring', number: 1, title: 'Внешнее кольцо', subtitle: 'ПЕРВЫЙ СИГНАЛ',
     lore: 'Камень здесь помнит шаги тех, кто исчез раньше тебя.', objective: 'survive', duration: 180,
-    x: 9, y: 50, accent: '#65dfbe', biome: 'ruins', enemies: ['husk', 'wisp', 'charger'], boss: 'archon', requires: []
+    x: 6, y: 50, accent: '#65dfbe', biome: 'ruins', enemies: ['husk', 'wisp', 'charger'], boss: 'archon', requires: []
   },
   {
     id: 'machine-garden', number: 2, title: 'Машинный сад', subtitle: 'ЛОЖНАЯ ЖИЗНЬ',
     lore: 'Сад растёт без солнца. Его корни сделаны из проводов.', objective: 'seals', duration: 210,
-    x: 29, y: 28, accent: '#5ad8b7', biome: 'garden', enemies: ['drone', 'wisp', 'hound'], boss: 'gardener', requires: ['outer-ring']
+    x: 18, y: 28, accent: '#5ad8b7', biome: 'garden', enemies: ['drone', 'wisp', 'hound', 'repairer'], boss: 'gardener', requires: ['outer-ring']
   },
   {
     id: 'bone-observatory', number: 3, title: 'Обсерватория', subtitle: 'НЕБО БЕЗ ЗВЁЗД',
     lore: 'Приборы всё ещё следят за тем, чего больше нет.', objective: 'hunt', duration: 210,
-    x: 29, y: 72, accent: '#a993e8', biome: 'observatory', enemies: ['seer', 'husk', 'charger'], boss: 'oracle', requires: ['outer-ring']
+    x: 18, y: 72, accent: '#a993e8', biome: 'observatory', enemies: ['seer', 'husk', 'charger', 'conductor'], boss: 'oracle', requires: ['outer-ring']
   },
   {
     id: 'static-foundry', number: 4, title: 'Кузница помех', subtitle: 'ЗАЩИТИТЬ ИСКРУ',
     lore: 'Старая кузница снова горит. Не дай ей погаснуть.', objective: 'defense', duration: 240,
-    x: 53, y: 28, accent: '#ed9b54', biome: 'foundry', enemies: ['brute', 'drone', 'sentinel'], boss: 'forgemaster', requires: ['machine-garden']
+    x: 32, y: 24, accent: '#ed9b54', biome: 'foundry', enemies: ['brute', 'drone', 'sentinel', 'warder'], boss: 'forgemaster', requires: ['machine-garden']
   },
   {
     id: 'silent-archive', number: 5, title: 'Безмолвный архив', subtitle: 'НАЙТИ ИМЕНА',
     lore: 'Книги закрыты. Их стражи — нет.', objective: 'hunt', duration: 270,
-    x: 53, y: 72, accent: '#76b9e8', biome: 'archive', enemies: ['scribe', 'seer', 'hound'], boss: 'librarian', requires: ['bone-observatory']
+    x: 32, y: 76, accent: '#76b9e8', biome: 'archive', enemies: ['scribe', 'seer', 'hound', 'silencer'], boss: 'librarian', requires: ['bone-observatory']
   },
   {
     id: 'crown-heart', number: 6, title: 'Сердце Короны', subtitle: 'ПОСЛЕДНИЙ ПРОТОКОЛ',
     lore: 'Две дороги сходятся там, где механизм выбирает носителя.', objective: 'boss', duration: 360,
-    x: 76, y: 50, accent: '#e2b05c', biome: 'crown', enemies: ['sentinel', 'scribe', 'brute', 'drone'], boss: 'crown', requiresAny: ['static-foundry', 'silent-archive']
+    x: 45, y: 50, accent: '#e2b05c', biome: 'crown', enemies: ['sentinel', 'scribe', 'brute', 'mirror'], boss: 'crown', requiresAny: ['static-foundry', 'silent-archive']
   },
-  { id: 'future-1', title: 'Неизвестный сектор', x: 93, y: 27, future: true },
-  { id: 'future-2', title: 'Неизвестный сектор', x: 93, y: 50, future: true },
-  { id: 'future-3', title: 'Неизвестный сектор', x: 93, y: 73, future: true }
+  {
+    id: 'broken-gates', number: 7, title: 'Разбитые врата', subtitle: 'ЗАКРЫТЬ ПРОХОДЫ', lore: 'Каждые открытые врата ведут в другую ошибку мира.', objective: 'portals', duration: 300,
+    x: 58, y: 26, accent: '#e78266', biome: 'void', enemies: ['mirror', 'charger', 'silencer', 'brute'], boss: 'gatekeeper', requires: ['crown-heart']
+  },
+  {
+    id: 'walking-temple', number: 8, title: 'Шагающий храм', subtitle: 'СОПРОВОЖДАТЬ МАШИНУ', lore: 'Храм помнит дорогу, но не умеет защищаться.', objective: 'escort', duration: 300,
+    x: 58, y: 74, accent: '#6ad5ba', biome: 'garden', enemies: ['hound', 'drone', 'repairer', 'warder'], boss: 'pilgrim', requires: ['crown-heart']
+  },
+  {
+    id: 'wandering-beacon', number: 9, title: 'Блуждающий маяк', subtitle: 'НЕ ПОКИДАТЬ СВЕТ', lore: 'Единственная безопасная точка постоянно меняет своё решение.', objective: 'zone', duration: 330,
+    x: 70, y: 22, accent: '#70c8eb', biome: 'observatory', enemies: ['seer', 'conductor', 'wisp', 'mirror'], boss: 'beacon', requires: ['broken-gates']
+  },
+  {
+    id: 'engine-graves', number: 10, title: 'Кладбище двигателей', subtitle: 'СОБРАТЬ МЕХАНИЗМ', lore: 'Четыре детали всё ещё спорят, какой машиной они были.', objective: 'parts', duration: 330,
+    x: 70, y: 78, accent: '#e5a05e', biome: 'foundry', enemies: ['sentinel', 'repairer', 'brute', 'hound'], boss: 'salvager', requires: ['walking-temple']
+  },
+  {
+    id: 'nameless-trail', number: 11, title: 'След без имени', subtitle: 'НАЙТИ НЕВИДИМОГО', lore: 'Охотник не виден. Его ошибки — видны.', objective: 'tracks', duration: 345,
+    x: 82, y: 50, accent: '#b392ed', biome: 'archive', enemies: ['silencer', 'scribe', 'seer', 'mirror'], boss: 'stalker', requiresAny: ['wandering-beacon', 'engine-graves']
+  },
+  {
+    id: 'double-signal', number: 12, title: 'Двойной сигнал', subtitle: 'РАЗОРВАТЬ СВЯЗЬ', lore: 'Два стража делят одну команду и одну ярость.', objective: 'twins', duration: 360,
+    x: 94, y: 50, accent: '#e3bd6c', biome: 'crown', enemies: ['warder', 'conductor', 'mirror', 'sentinel'], boss: 'twinA', requires: ['nameless-trail']
+  }
 ];
 
 export const UPGRADES = {
@@ -121,6 +161,94 @@ export const UPGRADES = {
   fortune: {
     name: 'Кость Без Чисел', icon: '◆', category: 'artifacts', max: 3, accent: '#d6a7e9',
     descriptions: ['Шанс критического удара +6%.', 'Шанс критического удара ещё +6%.', 'Критические удары создают искру опыта.']
+  },
+  force: {
+    name: 'Сжатая Искра', icon: '✦', category: 'artifacts', max: 4, accent: '#ef9b68',
+    descriptions: ['Весь урон +8%.', 'Весь урон ещё +8%.', 'Весь урон ещё +10%.', 'Критический урон становится сильнее.']
+  },
+  focus: {
+    name: 'Линза Предела', icon: '◉', category: 'artifacts', max: 3, accent: '#d7b6ef',
+    descriptions: ['Шанс критического удара +7%.', 'Критический урон +25%.', 'Элита получает дополнительный критический урон.']
+  },
+  wisdom: {
+    name: 'Память Архива', icon: '▤', category: 'artifacts', max: 3, accent: '#7fc5e8',
+    descriptions: ['Получаемый опыт +12%.', 'Получаемый опыт ещё +12%.', 'Каждый десятый осколок опыта удваивается.']
+  },
+  salvage: {
+    name: 'Искатель Деталей', icon: '⚙', category: 'artifacts', max: 3, accent: '#d5a85f',
+    descriptions: ['Шанс найти Scrap и магнит повышается.', 'Scrap восстанавливает больше здоровья.', 'Элита гарантированно оставляет полезную деталь.']
+  },
+  reach: {
+    name: 'Дальний Контур', icon: '⌁', category: 'artifacts', max: 3, accent: '#74d7c0',
+    descriptions: ['Размер атак +10%.', 'Время жизни снарядов +20%.', 'Дальность оружия увеличивается ещё сильнее.']
+  },
+  capacitor: {
+    name: 'Резервный Конденсатор', icon: 'ϟ', category: 'artifacts', max: 3, accent: '#7ebee9',
+    descriptions: ['Перезарядка способности -10%.', 'Перезарядка способности ещё -10%.', 'Использование способности ненадолго ускоряет атаки.']
+  },
+  aegis: {
+    name: 'Контур Эгиды', icon: '⬡', category: 'talents', classes: ['swordsman'], spec: 'guardian', max: 3, accent: '#79d7be',
+    descriptions: ['Каждые 18 секунд блокирует попадание.', 'Блок создаёт отражающую волну.', 'Время восстановления блока сокращается.']
+  },
+  bastion: {
+    name: 'Шаг Бастиона', icon: '▣', category: 'talents', classes: ['swordsman'], spec: 'guardian', max: 3, accent: '#8bd8c5',
+    descriptions: ['Во время атаки броня возрастает.', 'Разрез сильнее отталкивает врагов.', 'Круговой разрез оставляет защитный след.']
+  },
+  severance: {
+    name: 'Грань Приговора', icon: '╱', category: 'talents', classes: ['swordsman'], spec: 'executioner', max: 3, accent: '#ed8b62',
+    descriptions: ['Основной разрез наносит +18% урона.', 'Урон по раненым целям увеличивается.', 'Каждый четвёртый разрез становится двойным.']
+  },
+  momentum: {
+    name: 'Неумолимый Ход', icon: '≫', category: 'talents', classes: ['swordsman'], spec: 'executioner', max: 3, accent: '#e49a73',
+    descriptions: ['Победа над врагом ускоряет следующую атаку.', 'Эффект может складываться трижды.', 'Элита сразу даёт максимум ускорения.']
+  },
+  preyMark: {
+    name: 'Метка Добычи', icon: '⌖', category: 'talents', classes: ['archer'], spec: 'hunter', max: 3, accent: '#efb15b',
+    descriptions: ['Урон по элите и боссам +15%.', 'Стрелы помечают цель для следующего выстрела.', 'Метка усиливает критические попадания.']
+  },
+  ghostQuiver: {
+    name: 'Призрачный Колчан', icon: '⫷', category: 'talents', classes: ['archer'], spec: 'hunter', max: 3, accent: '#e9c177',
+    descriptions: ['Каждый шестой выстрел выпускает дополнительную стрелу.', 'Дополнительная стрела ищет новую цель.', 'Срабатывает каждый четвёртый выстрел.']
+  },
+  voltage: {
+    name: 'Грозовая Нить', icon: 'ϟ', category: 'talents', classes: ['archer'], spec: 'stormshot', max: 3, accent: '#68cfee',
+    descriptions: ['Шанс электрического скачка повышается.', 'Разряд может перескочить ещё раз.', 'Разряд наносит больше урона.']
+  },
+  stormQuiver: {
+    name: 'Колчан Разряда', icon: '≋', category: 'talents', classes: ['archer'], spec: 'stormshot', max: 3, accent: '#82d9ee',
+    descriptions: ['Способность перезаряжается быстрее.', 'Веер стрел шире.', 'После способности остаётся электрическое поле.']
+  },
+  gravityWell: {
+    name: 'Гравитационный Узел', icon: '◉', category: 'talents', classes: ['mage'], spec: 'riftkeeper', max: 3, accent: '#9c89ef',
+    descriptions: ['Разлом притягивает сильнее.', 'Радиус разлома увеличивается.', 'Разлом наносит урон чаще.']
+  },
+  continuum: {
+    name: 'Замкнутый Континуум', icon: '∞', category: 'talents', classes: ['mage'], spec: 'riftkeeper', max: 3, accent: '#ae9af3',
+    descriptions: ['Разлом существует дольше.', 'Перезарядка способности сокращается.', 'После исчезновения разлом создаёт импульс.']
+  },
+  detonation: {
+    name: 'Взрывная Формула', icon: '✹', category: 'talents', classes: ['mage'], spec: 'battlemage', max: 3, accent: '#e67eb8',
+    descriptions: ['Сферы поражают область вокруг цели.', 'Радиус взрыва увеличивается.', 'Последний скачок наносит двойной урон.']
+  },
+  spellguard: {
+    name: 'Печать Боевого Мага', icon: '◇', category: 'talents', classes: ['mage'], spec: 'battlemage', max: 3, accent: '#dc91bd',
+    descriptions: ['Способность даёт короткую неуязвимость.', 'Во время неё урон возрастает.', 'Первое попадание после способности отражается.']
+  },
+  turretKit: {
+    name: 'Полевой Комплект', icon: '⚒', category: 'talents', classes: ['mechanist'], spec: 'engineer', max: 3, accent: '#e4ae65',
+    descriptions: ['Мины быстрее превращаются в турели.', 'Турели стреляют чаще.', 'Одновременно работает ещё одна турель.']
+  },
+  repairProtocol: {
+    name: 'Ремонтный Протокол', icon: '⚙', category: 'talents', classes: ['mechanist'], spec: 'engineer', max: 3, accent: '#daba79',
+    descriptions: ['Scrap лечит ещё на 8% здоровья.', 'Scrap также восстанавливает ближайшие устройства.', 'Подбор Scrap создаёт бесплатную мину.']
+  },
+  swarmCore: {
+    name: 'Ядро Роя', icon: '⌬', category: 'talents', classes: ['mechanist'], spec: 'swarm', max: 3, accent: '#5ce0c1',
+    descriptions: ['Дополнительный дрон наносит больше урона.', 'Добавляет ещё один дрон.', 'Дроны выпускают двойной залп.']
+  },
+  targetMesh: {
+    name: 'Единая Сетка Целей', icon: '⌁', category: 'talents', classes: ['mechanist'], spec: 'swarm', max: 3, accent: '#79e2ca',
+    descriptions: ['Дроны быстрее находят следующую цель.', 'Каждая четвёртая очередь пробивает врага.', 'Все дроны повторяют классовую способность.']
   }
 };
 
@@ -144,19 +272,44 @@ export const FUSIONS = {
   briarCrown: {
     name: 'Терновая Корона', icon: '❉', accent: '#d9ad75', recipe: ['halo', 'thorns'], levels: [4, 4],
     description: 'Осколки Нимба выпускают собственные кольца эфирных шипов.'
+  },
+  glacier: {
+    name: 'Белая Орбита', icon: '❄', accent: '#82c9ed', recipe: ['frost', 'reach'], levels: [4, 3],
+    description: 'Холодная волна замораживает ближайших врагов и создаёт осколки.'
+  },
+  thunderhead: {
+    name: 'Грозовой Горизонт', icon: 'ϟ', accent: '#9bcbf1', recipe: ['storm', 'focus'], levels: [4, 3],
+    description: 'Критические удары вызывают дополнительную цепную молнию.'
+  },
+  mobileFoundry: {
+    name: 'Походная Кузница', icon: '⚙', accent: '#e6a166', recipe: ['mines', 'salvage'], levels: [4, 3],
+    description: 'Мины превращаются в турели и иногда создают Scrap.'
+  },
+  livingWall: {
+    name: 'Живая Стена', icon: '✣', accent: '#c2a0ec', recipe: ['thorns', 'vitality'], levels: [4, 3],
+    description: 'Получение урона немедленно создаёт защитное кольцо шипов.'
+  },
+  solarClock: {
+    name: 'Солнечный Часовой', icon: '✺', accent: '#efc36d', recipe: ['halo', 'capacitor'], levels: [4, 3],
+    description: 'Использование способности ускоряет Нимб и добавляет временный осколок.'
   }
 };
 
 export const ENEMIES = {
-  husk: { name: 'Пустая оболочка', family: 'ЗАБЫТЫЕ', radius: 15, hp: 30, speed: 63, damage: 10, xp: 1, color: '#88a99c', shape: 'husk' },
-  wisp: { name: 'Искра могилы', family: 'ЗАБЫТЫЕ', radius: 10, hp: 19, speed: 91, damage: 8, xp: 1, color: '#73dcbc', shape: 'wisp' },
-  drone: { name: 'Слепой дрон', family: 'МЕХАНИЗМЫ', radius: 14, hp: 48, speed: 55, damage: 11, xp: 2, color: '#d6ac62', shape: 'drone', ranged: true },
-  charger: { name: 'Рваный рыцарь', family: 'ЗАБЫТЫЕ', radius: 18, hp: 70, speed: 49, damage: 17, xp: 3, color: '#8fa3dc', shape: 'charger', charger: true },
-  brute: { name: 'Каменный счетовод', family: 'СТРАЖИ', radius: 24, hp: 135, speed: 38, damage: 20, xp: 5, color: '#b87959', shape: 'brute' },
+  husk: { name: 'Пустая оболочка', family: 'ЗАБЛУДШИЕ', radius: 15, hp: 30, speed: 63, damage: 10, xp: 1, color: '#88a99c', shape: 'husk' },
+  wisp: { name: 'Искра могилы', family: 'НАБЛЮДАТЕЛИ', radius: 10, hp: 19, speed: 91, damage: 8, xp: 1, color: '#73dcbc', shape: 'wisp' },
+  drone: { name: 'Слепой дрон', family: 'ЛАТУННЫЙ РОЙ', radius: 14, hp: 48, speed: 55, damage: 11, xp: 2, color: '#d6ac62', shape: 'drone', ranged: true },
+  charger: { name: 'Рваный рыцарь', family: 'ЗАБЛУДШИЕ', radius: 18, hp: 70, speed: 49, damage: 17, xp: 3, color: '#8fa3dc', shape: 'charger', charger: true },
+  brute: { name: 'Каменный счетовод', family: 'ИСКАЖЁННЫЕ', radius: 24, hp: 135, speed: 38, damage: 20, xp: 5, color: '#b87959', shape: 'brute' },
   seer: { name: 'Слепой астроном', family: 'НАБЛЮДАТЕЛИ', radius: 16, hp: 58, speed: 46, damage: 13, xp: 3, color: '#b792ee', shape: 'seer', ranged: true },
-  hound: { name: 'Латунная гончая', family: 'МЕХАНИЗМЫ', radius: 13, hp: 42, speed: 108, damage: 12, xp: 2, color: '#df985a', shape: 'hound' },
-  sentinel: { name: 'Страж кузницы', family: 'СТРАЖИ', radius: 20, hp: 105, speed: 43, damage: 18, xp: 4, color: '#e1804d', shape: 'sentinel', ranged: true },
-  scribe: { name: 'Переписчик', family: 'АРХИВ', radius: 17, hp: 78, speed: 52, damage: 14, xp: 3, color: '#70b7df', shape: 'scribe', ranged: true }
+  hound: { name: 'Латунная гончая', family: 'ЛАТУННЫЙ РОЙ', radius: 13, hp: 42, speed: 108, damage: 12, xp: 2, color: '#df985a', shape: 'hound' },
+  sentinel: { name: 'Страж кузницы', family: 'ЛАТУННЫЙ РОЙ', radius: 20, hp: 105, speed: 43, damage: 18, xp: 4, color: '#e1804d', shape: 'sentinel', ranged: true },
+  scribe: { name: 'Переписчик', family: 'АРХИВАРИУСЫ', radius: 17, hp: 78, speed: 52, damage: 14, xp: 3, color: '#70b7df', shape: 'scribe', ranged: true },
+  warder: { name: 'Щитоносец Сигнала', family: 'ИСКАЖЁННЫЕ', radius: 21, hp: 125, speed: 40, damage: 12, xp: 4, color: '#83b8a5', shape: 'warder', support: 'shield' },
+  repairer: { name: 'Ремонтная Оса', family: 'ЛАТУННЫЙ РОЙ', radius: 12, hp: 45, speed: 67, damage: 8, xp: 3, color: '#e3bd69', shape: 'repairer', support: 'repair', ranged: true },
+  conductor: { name: 'Дирижёр Пустоты', family: 'НАБЛЮДАТЕЛИ', radius: 18, hp: 82, speed: 45, damage: 13, xp: 4, color: '#a98aeb', shape: 'conductor', support: 'command' },
+  silencer: { name: 'Глушитель Формул', family: 'АРХИВАРИУСЫ', radius: 17, hp: 76, speed: 50, damage: 12, xp: 4, color: '#6fb5d9', shape: 'silencer', support: 'silence', ranged: true },
+  mirror: { name: 'Зеркальная Ошибка', family: 'ИСКАЖЁННЫЕ', radius: 19, hp: 92, speed: 57, damage: 15, xp: 4, color: '#d28cc2', shape: 'mirror', support: 'clone' }
 };
 
 export const BOSSES = {
@@ -165,11 +318,33 @@ export const BOSSES = {
   oracle: { name: 'ОРБИТАЛЬНЫЙ ОРАКУЛ', subtitle: 'НАБЛЮДАТЕЛЬ ПУСТОГО НЕБА', radius: 57, hp: 2000, speed: 39, damage: 28, color: '#ae91e6' },
   forgemaster: { name: 'МАСТЕР ПЕПЕЛЬНОЙ КУЗНИ', subtitle: 'ЗАЖИГАЮЩИЙ СТАРЫЕ СЕРДЦА', radius: 62, hp: 3100, speed: 40, damage: 33, color: '#e28c4f' },
   librarian: { name: 'БЕЗЫМЯННЫЙ БИБЛИОТЕКАРЬ', subtitle: 'ПОСЛЕДНЯЯ ЗАКРЫТАЯ КНИГА', radius: 61, hp: 3250, speed: 41, damage: 32, color: '#73b9df' },
-  crown: { name: 'КОРОНА БЕЗ НОСИТЕЛЯ', subtitle: 'ПОСЛЕДНИЙ ПРОТОКОЛ', radius: 70, hp: 5700, speed: 43, damage: 37, color: '#e2b05c' }
+  crown: { name: 'КОРОНА БЕЗ НОСИТЕЛЯ', subtitle: 'ПОСЛЕДНИЙ ПРОТОКОЛ', radius: 70, hp: 5700, speed: 43, damage: 37, color: '#e2b05c' },
+  gatekeeper: { name: 'СМОТРИТЕЛЬ ВРАТ', subtitle: 'ЗАКРЫВАЮЩИЙ ПРОХОДЫ', radius: 64, hp: 4400, speed: 42, damage: 34, color: '#e78266' },
+  pilgrim: { name: 'ЛОЖНЫЙ ПИЛИГРИМ', subtitle: 'ИДУЩИЙ ЗА ХРАМОМ', radius: 65, hp: 4600, speed: 46, damage: 35, color: '#6ad5ba' },
+  beacon: { name: 'ПОГАСШИЙ МАЯК', subtitle: 'СВЕТ, КОТОРЫЙ ОХОТИТСЯ', radius: 67, hp: 5000, speed: 44, damage: 36, color: '#70c8eb' },
+  salvager: { name: 'СБОРЩИК ДВИГАТЕЛЕЙ', subtitle: 'ХОЗЯИН ЧУЖИХ ДЕТАЛЕЙ', radius: 68, hp: 5300, speed: 41, damage: 38, color: '#e5a05e' },
+  stalker: { name: 'ОХОТНИК БЕЗ ИМЕНИ', subtitle: 'СЛЕД, КОТОРЫЙ ДОГНАЛ', radius: 61, hp: 5600, speed: 58, damage: 38, color: '#b392ed' },
+  twinA: { name: 'ПЕРВЫЙ СИГНАЛ', subtitle: 'ПОЛОВИНА ЕДИНОЙ КОМАНДЫ', radius: 55, hp: 4800, speed: 48, damage: 34, color: '#e3bd6c' },
+  twinB: { name: 'ВТОРОЙ СИГНАЛ', subtitle: 'ПОЛОВИНА ЕДИНОЙ КОМАНДЫ', radius: 55, hp: 4800, speed: 48, damage: 34, color: '#8acbc0' }
 };
 
 export const META_PERKS = {
   vitality: { name: 'Остаточная плоть', description: '+5 здоровья в начале уровня.', max: 3, costs: [20, 45, 80] },
   force: { name: 'Запомненный удар', description: '+4% урона в начале уровня.', max: 3, costs: [25, 50, 90] },
-  greed: { name: 'Память магнита', description: '+10% получаемого Эха.', max: 3, costs: [20, 45, 80] }
+  greed: { name: 'Память магнита', description: '+10% получаемого Эха.', max: 3, costs: [20, 45, 80] },
+  swiftness: { name: 'Запомненный шаг', description: '+3% скорости движения.', max: 3, costs: [20, 45, 75] },
+  learning: { name: 'Быстрое чтение', description: '+5% получаемого опыта.', max: 3, costs: [25, 50, 85] },
+  salvage: { name: 'Чутьё механика', description: 'Повышает шанс выпадения Scrap.', max: 3, costs: [25, 55, 95] },
+  ward: { name: 'Остаточная броня', description: '-3% получаемого урона.', max: 3, costs: [30, 60, 100] },
+  charge: { name: 'Память конденсатора', description: '-3% перезарядки способности.', max: 3, costs: [30, 65, 105] },
+  cartography: { name: 'Живая карта', description: '+12% радиуса мини-карты.', max: 3, costs: [15, 35, 65] }
+};
+
+export const EVENTS = {
+  altar: { name: 'Алтарь', icon: '◇', accent: '#d38d9d', description: 'Следующий носитель отдаст часть здоровья и начнёт с редким артефактом.' },
+  forge: { name: 'Кузница', icon: '⚒', accent: '#e5a05e', description: 'Основное оружие начнёт следующий уровень со второго ранга.' },
+  anomaly: { name: 'Аномалия', icon: '◉', accent: '#ad8de8', description: 'На следующем уровне станет больше элиты, но награда Эха возрастёт.' },
+  archive: { name: 'Архив', icon: '▤', accent: '#76b9e8', description: 'Открывает неизвестную страницу и ускоряет получение опыта.' },
+  merchant: { name: 'Странствующий мастер', icon: '⌬', accent: '#6bd9bd', description: 'За 30 Эха подготовит два случайных артефакта.' },
+  signal: { name: 'Неизвестный сигнал', icon: 'ϟ', accent: '#e9c16d', description: 'Призывает дополнительную элиту с увеличенной наградой.' }
 };
