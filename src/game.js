@@ -1,6 +1,6 @@
 import { AudioEngine } from './audio.js';
-import { BOSSES, CLASSES, ENEMIES, EVENTS, FUSIONS, META_PERKS, SPECIALIZATIONS, STAGES, UPGRADES } from './data.js';
-import { TAU, absorbDamage, chooseUnique, circleHit, clamp, distanceSq, formatTime, normalize, spawnInterval, weightedPick, xpForLevel } from './core.js';
+import { BOSSES, CLASSES, CONTRACTS, ENEMIES, EVENTS, FUSIONS, META_PERKS, RARITIES, SPECIALIZATIONS, STAGES, UPGRADES } from './data.js';
+import { TAU, absorbDamage, chooseUnique, circleHit, clamp, distanceSq, formatTime, normalize, spawnInterval, weightedPick, weightedUnique, xpForLevel } from './core.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('world');
@@ -11,16 +11,17 @@ const ui = {
   build: $('buildPanel'), boss: $('bossBar'), touch: $('touch'), flash: $('flash'), campaignNodes: $('campaignNodes'),
   campaignLinks: $('campaignLinks'), campaignProgress: $('campaignProgress'), chooseStage: $('chooseStage'),
   stageKicker: $('stageKicker'), stageNumber: $('stageNumber'), stageTitle: $('stageTitle'), stageLore: $('stageLore'),
-  stageObjective: $('stageObjective'), stageDuration: $('stageDuration'), stageThreat: $('stageThreat'), classCards: $('classCards'), specCards: $('specCards'),
+  stageObjective: $('stageObjective'), stageDuration: $('stageDuration'), stageThreat: $('stageThreat'), classCards: $('classCards'), specCards: $('specCards'), contractCards: $('contractCards'),
   selectedStagePath: $('selectedStagePath'), selectedStageObjective: $('selectedStageObjective'), chosenClassName: $('chosenClassName'),
   chosenClassAbility: $('chosenClassAbility'), chosenSpecName: $('chosenSpecName'), eventCards: $('eventCards'), bookTabs: $('bookTabs'), bookGrid: $('bookGrid'), bookDetail: $('bookDetail'),
   bookFound: $('bookFound'), bookTotal: $('bookTotal'), bookProgressFill: $('bookProgressFill'), menuBookProgress: $('menuBookProgress'),
   endless: $('endlessButton'), endlessState: $('endlessState'), timer: $('timer'), phase: $('phaseName'), wave: $('wave'),
   level: $('level'), kills: $('kills'), health: $('healthFill'), healthText: $('healthText'), xp: $('xpFill'),
   dash: $('dashAbility'), ability: $('classAbility'), abilityIcon: $('abilityIcon'), abilityName: $('abilityName'),
-  hudClassIcon: $('hudClassIcon'), hudPortrait: $('hudPortrait'), missionText: $('missionText'), missionFill: $('missionFill'),
+  hudClassIcon: $('hudClassIcon'), hudPortrait: $('hudPortrait'), missionText: $('missionText'), missionFill: $('missionFill'), contractText: $('contractText'),
   buildSlots: $('buildSlots'), bossName: $('bossName'), bossHealth: $('bossHealthFill'), bossHealthText: $('bossHealthText'),
-  cards: $('cards'), choiceTitle: $('choiceTitle'), choiceSubtitle: $('choiceSubtitle'), pinnedRecipe: $('pinnedRecipe'), toast: $('toast'), announcement: $('announcement')
+  cards: $('cards'), choiceTitle: $('choiceTitle'), choiceSubtitle: $('choiceSubtitle'), pinnedRecipe: $('pinnedRecipe'), toast: $('toast'), announcement: $('announcement'),
+  resultContract: $('resultContract'), victoryScene: $('victoryScene'), victoryTitle: $('victoryTitle')
 };
 
 const OBJECTIVES = {
@@ -43,7 +44,8 @@ const DEFAULT_SAVE = {
   settings: { volume: 65, shake: true, effects: true }, completedStages: [], selectedClass: 'swordsman',
   selectedSpecs: { swordsman: 'guardian', archer: 'hunter', mage: 'riftkeeper', mechanist: 'engineer' },
   codex: { items: [], fusions: [], enemies: [], specs: [], bosses: [] }, campaignComplete: false, hardCompletedStages: [],
-  enemyKills: {}, bossKills: {}, stageTimes: {}, builds: [], pinnedFusion: null, nextRunEvent: null, pendingEvent: false
+  enemyKills: {}, bossKills: {}, stageTimes: {}, builds: [], pinnedFusion: null, nextRunEvent: null, pendingEvent: false,
+  completedContracts: [], secretRoomsFound: 0
 };
 
 function loadSave() {
@@ -56,6 +58,7 @@ function loadSave() {
       hardCompletedStages: Array.isArray(stored.hardCompletedStages) ? stored.hardCompletedStages : [],
       selectedSpecs: { ...DEFAULT_SAVE.selectedSpecs, ...stored.selectedSpecs }, enemyKills: stored.enemyKills || {}, bossKills: stored.bossKills || {},
       stageTimes: stored.stageTimes || {}, builds: Array.isArray(stored.builds) ? stored.builds : [],
+      completedContracts: Array.isArray(stored.completedContracts) ? stored.completedContracts : [], secretRoomsFound: Number(stored.secretRoomsFound) || 0,
       codex: {
         items: Array.isArray(stored.codex?.items) ? stored.codex.items : [],
         fusions: Array.isArray(stored.codex?.fusions) ? stored.codex.fusions : [],
@@ -80,10 +83,14 @@ let mode = 'menu';
 let selectedStage = STAGES[0];
 let selectedClass = CLASSES[save.selectedClass] ? save.selectedClass : 'swordsman';
 let selectedSpec = SPECIALIZATIONS[selectedClass][save.selectedSpecs[selectedClass]] ? save.selectedSpecs[selectedClass] : Object.keys(SPECIALIZATIONS[selectedClass])[0];
+let selectedContract = null;
+let contractChoices = [];
+let contractStageId = null;
 let difficulty = 'normal';
 let bookTab = 'weapons';
 let bookSelection = null;
 let choiceActions = [];
+let choiceSource = 'level';
 let lastFrame = performance.now();
 let toastTimer = 0;
 
@@ -158,8 +165,15 @@ function showStage(stage) {
   ui.chooseStage.disabled = !unlocked;
 }
 
+function prepareContracts() {
+  const stage = selectedStage || STAGES[0];
+  const eligible = Object.entries(CONTRACTS).filter(([, contract]) => !contract.objectives || contract.objectives.includes(stage.objective)).map(([id]) => id);
+  contractChoices = chooseUnique(eligible, 2); contractStageId = stage.id; selectedContract = null;
+}
+
 function renderClassSelect() {
   const stage = selectedStage || STAGES[0];
+  if (contractStageId !== stage.id) prepareContracts();
   ui.selectedStagePath.textContent = stage.endless ? 'ПОСЛЕ КАМПАНИИ' : `СЕКТОР ${String(stage.number).padStart(2, '0')} // ${stage.title.toUpperCase()}`;
   ui.selectedStageObjective.textContent = OBJECTIVES[stage.objective][1]; ui.classCards.innerHTML = '';
   for (const [id, hero] of Object.entries(CLASSES)) {
@@ -175,8 +189,15 @@ function renderClassSelect() {
     button.innerHTML = `<span><i>${spec.icon}</i></span><div><small>${spec.title.toUpperCase()}</small><strong>${spec.name}</strong><p>${spec.description}</p></div>`;
     button.addEventListener('click', () => { selectedSpec = id; save.selectedSpecs[selectedClass] = id; unlockCodex('specs', `${selectedClass}:${id}`, false); persist(); renderClassSelect(); audio.click(); }); ui.specCards.append(button);
   }
+  ui.contractCards.innerHTML = '';
+  for (const id of [null, ...contractChoices]) {
+    const contract = id ? CONTRACTS[id] : { name: 'БЕЗ КОНТРАКТА', icon: '—', description: 'Войти в сектор без дополнительного условия.', reward: 0 };
+    const button = document.createElement('button'); button.className = `contract-card ${id === selectedContract ? 'selected' : ''}`;
+    button.innerHTML = `<i>${contract.icon}</i><span><strong>${contract.name}</strong><small>${contract.description}</small></span><b>${id ? `+${contract.reward} ЭХО` : 'СВОБОДНЫЙ ЗАБЕГ'}</b>`;
+    button.addEventListener('click', () => { selectedContract = id; renderClassSelect(); audio.click(); }); ui.contractCards.append(button);
+  }
   const hero = CLASSES[selectedClass]; const spec = SPECIALIZATIONS[selectedClass][selectedSpec];
-  ui.chosenSpecName.textContent = spec.name; ui.chosenSpecName.style.color = spec.accent; ui.chosenClassName.textContent = `${hero.name} // ${spec.name}`; ui.chosenClassAbility.textContent = `${hero.ability} ${spec.description}`;
+  ui.chosenSpecName.textContent = spec.name; ui.chosenSpecName.style.color = spec.accent; ui.chosenClassName.textContent = `${hero.name} // ${spec.name}`; ui.chosenClassAbility.textContent = `${hero.ability} ${hero.objective}`;
 }
 
 function renderEvent() {
@@ -219,11 +240,13 @@ function renderBook() {
   if (!entries.some(entry => `${entry.kind}:${entry.id}` === bookSelection)) bookSelection = entries.length ? `${entries[0].kind}:${entries[0].id}` : null;
   ui.bookGrid.innerHTML = '';
   for (const entry of entries) {
-    const key = `${entry.kind}:${entry.id}`; const showRecipe = entry.kind === 'fusions';
+    const key = `${entry.kind}:${entry.id}`; const showRecipe = entry.kind === 'fusions'; const rarity = entry.kind === 'items' ? entry.data.rarity : showRecipe ? 'legendary' : null; const rarityData = RARITIES[rarity];
     const button = document.createElement('button');
-    button.className = `book-entry ${entry.unlocked ? '' : 'locked'} ${bookSelection === key ? 'selected' : ''}`;
+    button.className = `book-entry ${entry.unlocked ? `rarity-${rarity || 'none'}` : 'locked'} ${bookSelection === key ? 'selected' : ''}`;
     button.style.setProperty('--entry-accent', entry.data.accent || entry.data.color || '#67e1c1');
-    button.innerHTML = `<span class="entry-icon">${entry.unlocked ? entry.data.icon || enemyIcon(entry.id) : '◆'}</span><small>${entry.unlocked ? entry.data.category?.toUpperCase() || entry.data.family || entry.kind.toUpperCase() : showRecipe ? 'РЕЦЕПТ ДОСТУПЕН' : 'ЗАПИСЬ УТРАЧЕНА'}</small><strong>${entry.unlocked ? entry.data.name : showRecipe ? 'НЕИЗВЕСТНОЕ СЛИЯНИЕ' : 'НЕИЗВЕСТНЫЙ ОБЪЕКТ'}</strong>`;
+    if (rarityData && entry.unlocked) button.style.setProperty('--rarity-color', rarityData.color);
+    const label = rarityData ? `${rarityData.name} // ${entry.data.category?.toUpperCase() || 'СЛИЯНИЕ'}` : entry.data.category?.toUpperCase() || entry.data.family || entry.kind.toUpperCase();
+    button.innerHTML = `<span class="entry-icon">${entry.unlocked ? entry.data.icon || enemyIcon(entry.id) : '◆'}</span><small>${entry.unlocked ? label : showRecipe ? 'РЕЦЕПТ ДОСТУПЕН' : 'ЗАПИСЬ УТРАЧЕНА'}</small><strong>${entry.unlocked ? entry.data.name : showRecipe ? 'НЕИЗВЕСТНОЕ СЛИЯНИЕ' : 'НЕИЗВЕСТНЫЙ ОБЪЕКТ'}</strong>`;
     button.addEventListener('click', () => { bookSelection = key; renderBook(); audio.click(); }); ui.bookGrid.append(button);
   }
   renderBookDetail(entries.find(entry => `${entry.kind}:${entry.id}` === bookSelection) || entries[0]);
@@ -234,10 +257,10 @@ function renderBookDetail(entry) {
   const { id, data, kind, unlocked } = entry; const accent = data.accent || data.color || '#67e1c1';
   let body = '';
   if (kind === 'items' && unlocked) {
-    const location = data.spec ? `${CLASSES[data.classes[0]].name}: специализация «${SPECIALIZATIONS[data.classes[0]][data.spec].name}»` : data.classes ? `Доступно классу: ${data.classes.map(key => CLASSES[key].name).join(', ')}` : 'Может появиться при повышении уровня в любом секторе.';
+    const location = data.rarity === 'secret' ? 'Находится только в тайных комнатах.' : data.spec ? `${CLASSES[data.classes[0]].name}: специализация «${SPECIALIZATIONS[data.classes[0]][data.spec].name}»` : data.classes ? `Доступно классу: ${data.classes.map(key => CLASSES[key].name).join(', ')}` : 'Может появиться при повышении уровня в любом секторе.';
     body = `<p>${data.descriptions[0]}</p><div class="detail-levels"><div><b>⌖</b>${location}</div>${data.descriptions.map((text, index) => `<div><b>${index + 1}</b>${text}</div>`).join('')}</div>`;
   }
-  if (kind === 'items' && !unlocked) body = '<p>Эта запись ещё не выбрана во время забега. Архив сохранил только подсказку: реликвии приходят при новом уровне, а таланты зависят от специализации.</p><div class="mystery-effect">ВЫБЕРИ ПРЕДМЕТ, ЧТОБЫ ВОССТАНОВИТЬ СТРАНИЦУ</div>';
+  if (kind === 'items' && !unlocked) body = `<p>${data.rarity === 'secret' ? 'Эта сигнатура скрыта за одной из стен сектора.' : 'Эта запись ещё не выбрана во время забега. Реликвии приходят при новом уровне, а таланты зависят от специализации.'}</p><div class="mystery-effect">${data.rarity === 'secret' ? 'НАЙДИ ТАЙНУЮ КОМНАТУ' : 'ВЫБЕРИ ПРЕДМЕТ, ЧТОБЫ ВОССТАНОВИТЬ СТРАНИЦУ'}</div>`;
   if (kind === 'fusions') {
     const parts = data.recipe.map(part => save.codex.items.includes(part) ? UPGRADES[part].name : 'НЕИЗВЕСТНЫЙ ПРЕДМЕТ');
     body = `<p>Собери нужные уровни обеих реликвий в одном забеге.</p><div class="recipe"><span>${parts[0]} ${roman(data.levels[0])}</span><b>+</b><span>${parts[1]} ${roman(data.levels[1])}</span></div>${unlocked ? `<div class="detail-levels"><div><b>✓</b>${data.description}</div></div>` : '<div class="mystery-effect">ЭФФЕКТ СКРЫТ ДО ПЕРВОГО СЛИЯНИЯ</div>'}<button class="pin-button" data-pin="${id}">${save.pinnedFusion === id ? 'ОТКРЕПИТЬ РЕЦЕПТ' : 'ЗАКРЕПИТЬ РЕЦЕПТ ДЛЯ ЗАБЕГА'}</button>`;
@@ -248,16 +271,17 @@ function renderBookDetail(entry) {
   if (kind === 'bosses' && !unlocked) body = '<p>Имя стража скрыто. Запись появится, когда он впервые пробудится.</p><div class="mystery-effect">ДОЙДИ ДО ФИНАЛА СЕКТОРА</div>';
   if (kind === 'heroes') {
     const specs = Object.entries(SPECIALIZATIONS[id]);
-    const knownSpec = specs.find(([specId]) => save.codex.specs.includes(`${id}:${specId}`)); body = `<div class="hero-forms"><div class="hero-preview"><img src="${data.image}" alt="${data.name} до специализации"><small>ДО</small></div><div class="hero-preview evolved" style="--form-accent:${knownSpec?.[1].accent || '#485750'}"><img src="${data.image}" alt="${data.name} после специализации"><small>ПОСЛЕ</small></div></div><p>${data.passive} ${data.ability}</p><div class="detail-levels">${specs.map(([specId, spec]) => { const known = save.codex.specs.includes(`${id}:${specId}`); return `<div><b style="color:${known ? spec.accent : '#596760'}">${known ? spec.icon : '?'}</b>${known ? `${spec.name}: ${spec.description}` : 'Неизвестная специализация'}</div>`; }).join('')}</div>`;
+    const knownSpec = specs.find(([specId]) => save.codex.specs.includes(`${id}:${specId}`)); body = `<div class="hero-forms"><div class="hero-preview"><img src="${data.image}" alt="${data.name} до специализации"><small>ДО</small></div><div class="hero-preview evolved" style="--form-accent:${knownSpec?.[1].accent || '#485750'}"><img src="${data.image}" alt="${data.name} после специализации"><small>ПОСЛЕ</small></div></div><p>${data.passive} ${data.ability}</p><div class="detail-levels"><div><b>⌖</b>${data.objective}</div>${specs.map(([specId, spec]) => { const known = save.codex.specs.includes(`${id}:${specId}`); return `<div><b style="color:${known ? spec.accent : '#596760'}">${known ? spec.icon : '?'}</b>${known ? `${spec.name}: ${spec.description}` : 'Неизвестная специализация'}</div>`; }).join('')}</div>`;
   }
   if (kind === 'builds') {
     const stage = STAGES.find(item => item.id === data.stageId); const items = data.items.map(([itemId, level]) => `${UPGRADES[itemId]?.name || itemId} ${roman(level)}`).join(' · ');
     body = `<p>${data.victory ? 'Победная' : 'Сохранённая'} сборка из сектора «${stage?.title || data.stageId}».</p><div class="detail-levels"><div><b>◷</b>${formatTime(data.time)} // ${data.difficulty === 'hard' ? 'ХАРД' : 'ОБЫЧНЫЙ'}</div><div><b>✦</b>${data.kills} целей</div><div><b>▤</b>${items || 'Только основное оружие'}</div><div><b>F</b>${data.fusions.length ? data.fusions.map(key => FUSIONS[key]?.name).join(', ') : 'Без слияний'}</div></div>`;
   }
   const name = unlocked ? data.name : kind === 'fusions' ? 'Неизвестное слияние' : 'Закрытая запись';
+  const rarity = kind === 'items' ? data.rarity : kind === 'fusions' ? 'legendary' : null; const rarityData = RARITIES[rarity];
   const category = ({ fusions: 'СЛИЯНИЕ', bosses: 'СТРАЖ СЕКТОРА', heroes: 'НОСИТЕЛЬ', builds: 'СОХРАНЁННАЯ СБОРКА' })[kind] || data.category?.toUpperCase() || data.family;
   ui.bookDetail.className = `book-detail ${unlocked ? '' : 'locked'}`; ui.bookDetail.style.setProperty('--detail-accent', accent);
-  ui.bookDetail.innerHTML = `<div class="detail-icon"><span>${unlocked ? data.icon || enemyIcon(id) : '◆'}</span></div><span class="detail-category">${unlocked ? category : 'ДАННЫЕ ОТСУТСТВУЮТ'}</span><h3>${name}</h3>${body}`;
+  ui.bookDetail.innerHTML = `<div class="detail-icon"><span>${unlocked ? data.icon || enemyIcon(id) : '◆'}</span></div><span class="detail-category">${unlocked && rarityData ? `<i style="color:${rarityData.color}">${rarityData.name}</i> // ` : ''}${unlocked ? category : 'ДАННЫЕ ОТСУТСТВУЮТ'}</span><h3>${name}</h3>${body}`;
   ui.bookDetail.querySelector('[data-pin]')?.addEventListener('click', event => { save.pinnedFusion = save.pinnedFusion === event.currentTarget.dataset.pin ? null : event.currentTarget.dataset.pin; persist(); renderBookDetail(entry); audio.click(); });
 }
 
@@ -299,16 +323,16 @@ function createGame() {
   const hero = CLASSES[selectedClass]; const spec = SPECIALIZATIONS[selectedClass][selectedSpec]; const stage = selectedStage || STAGES[0]; const metaHealth = (save.perks.vitality || 0) * 5;
   const upgrades = Object.fromEntries(Object.keys(UPGRADES).map(id => [id, 0])); upgrades[hero.primary] = 1;
   const seals = [{ x: -520, y: -180, charge: 0 }, { x: 430, y: -310, charge: 0 }, { x: 270, y: 430, charge: 0 }];
-  const hard = difficulty === 'hard'; const eventId = save.nextRunEvent; const coreHealth = 760 + stage.number * 45; save.nextRunEvent = null; persist();
+  const hard = difficulty === 'hard'; const eventId = save.nextRunEvent; const coreHealth = 760 + stage.number * 45; const roomAngle = Math.random() * TAU; const roomDistance = 520 + Math.random() * 150; save.nextRunEvent = null; persist();
   const state = {
     stage, classId: selectedClass, specId: selectedSpec, hero, spec, difficulty, eventId, time: 0, spawnClock: stage.objective === 'defense' ? 2.2 : .5, attackClock: .2, thornClock: 2, stormClock: 1.2,
-    mineClock: 2.5, frostClock: 3, recoveryClock: 18, pendingLevels: 0, ended: false, upgrades, fusions: new Set(),
+    mineClock: 2.5, frostClock: 3, recoveryClock: 18, novaClock: 4, singularityClock: 6, pendingLevels: 0, ended: false, ending: null, upgrades, fusions: new Set(),
     player: {
       x: stage.objective === 'defense' ? 110 : 0, y: 0, radius: 15, facing: 0, hp: hero.hp + metaHealth, maxHp: hero.hp + metaHealth,
       speed: hero.speed * (spec.speed || 1) * (1 + (save.perks.swiftness || 0) * .03), damage: hero.damage * (spec.damage || 1) * (1 + (save.perks.force || 0) * .04), fireRate: 1, magnet: 115,
       armor: (selectedClass === 'swordsman' ? .12 : 0) + (spec.armor || 0) + (save.perks.ward || 0) * .03,
       level: 1, xp: 0, nextXp: xpForLevel(1), dashCooldown: 0, dashTime: 0, abilityCooldown: 0, invulnerable: 0,
-      speedBoost: 0, lastDamage: -99, attackPose: 0, overdrive: 0, shotCount: 0, step: 0, blockCooldown: spec === SPECIALIZATIONS.swordsman.guardian ? 14 : 0
+      speedBoost: 0, lastDamage: 0, attackPose: 0, overdrive: 0, shotCount: 0, step: 0, blockCooldown: spec === SPECIALIZATIONS.swordsman.guardian ? 14 : 0
     },
     enemies: [], projectiles: [], hostile: [], shards: [], drops: [], particles: [], effects: [], numbers: [], mines: [], hazards: [],
     kills: 0, activeBoss: null, bossSpawned: false, camera: { x: 0, y: 0, shake: 0 }, seals,
@@ -316,6 +340,8 @@ function createGame() {
     portals: [], escort: { x: -560, y: 0, radius: 32, hp: 720, maxHp: 720, progress: 0 }, zone: { x: 0, y: 0, radius: 145, charge: 0, moveClock: 22 },
     parts: [{ x: -480, y: -260 }, { x: 470, y: -250 }, { x: -330, y: 430 }, { x: 430, y: 380 }], tracks: [], objectiveCount: 0,
     nextBossAt: stage.endless ? (hard ? 140 : 180) : 0, storyStep: 0, endReward: 0, victory: false, invertControls: 0, lockedUpgrade: null, lockedTimer: 0,
+    contractId: selectedContract, contractStats: { hits: 0, abilities: 0, scrap: 0, secret: false }, objectiveGuard: 0, repairFx: 0,
+    secretRoom: { x: Math.cos(roomAngle) * roomDistance, y: Math.sin(roomAngle) * roomDistance, radius: 62, type: ['СКЛЕП', 'МАСТЕРСКАЯ', 'ЛАБОРАТОРИЯ'][stage.number % 3], revealed: selectedClass === 'archer', active: false, cleared: false, rewardOpened: false },
     hardHazardClock: 13, anomalyElite: eventId === 'anomaly', signalElite: eventId === 'signal', rewardScale: eventId === 'anomaly' || eventId === 'signal' ? 1.3 : 1
   };
   if (stage.objective === 'portals') for (const [x, y] of [[-520, -290], [470, -330], [-390, 420], [510, 360]]) state.enemies.push(objectiveEnemy(x, y, 420 + stage.number * 32, stage.accent));
@@ -329,7 +355,7 @@ function objectiveEnemy(x, y, hp, color) {
 
 function applyStartEvent(state, id) {
   if (!id) return;
-  const p = state.player; const artifacts = Object.keys(UPGRADES).filter(key => UPGRADES[key].category === 'artifacts');
+  const p = state.player; const artifacts = Object.keys(UPGRADES).filter(key => UPGRADES[key].category === 'artifacts' && UPGRADES[key].rarity !== 'secret');
   if (id === 'altar') { p.maxHp = Math.round(p.maxHp * .82); p.hp = p.maxHp; p.damage *= 1.18; const key = artifacts[Math.floor(Math.random() * artifacts.length)]; state.upgrades[key] = 1; applyUpgradeStats(state, key); unlockCodex('items', key, false); }
   if (id === 'forge') state.upgrades[state.hero.primary] = 2;
   if (id === 'archive') { state.xpScale = 1.2; const unseen = artifacts.filter(key => !save.codex.items.includes(key)); if (unseen.length) unlockCodex('items', unseen[Math.floor(Math.random() * unseen.length)], false); }
@@ -343,7 +369,7 @@ function applyUpgradeStats(state, key) {
 }
 
 function startGame() {
-  audio.start(); audio.click(); unlockCodex('items', CLASSES[selectedClass].primary, false); unlockCodex('specs', `${selectedClass}:${selectedSpec}`, false); game = createGame(); setScreen('playing');
+  audio.start(); audio.click(); ui.victoryScene.classList.remove('show'); unlockCodex('items', CLASSES[selectedClass].primary, false); unlockCodex('specs', `${selectedClass}:${selectedSpec}`, false); game = createGame(); setScreen('playing');
   ui.wave.textContent = game.stage.endless ? '∞' : String(game.stage.number).padStart(2, '0');
   ui.phase.textContent = `${game.stage.title.toUpperCase()}${game.difficulty === 'hard' ? ' // ХАРД' : ''}`; ui.hudClassIcon.textContent = game.spec.icon; ui.hudClassIcon.style.color = game.spec.accent; ui.hudPortrait.textContent = game.hero.icon;
   ui.abilityIcon.textContent = ABILITIES[game.classId][0]; ui.abilityName.textContent = ABILITIES[game.classId][1]; ui.boss.classList.add('hidden');
@@ -359,21 +385,24 @@ function inputVector() {
 }
 
 function triggerDash() {
-  if (!game || mode !== 'playing' || game.player.dashCooldown > 0) return;
+  if (!game || game.ending || mode !== 'playing' || game.player.dashCooldown > 0) return;
   const player = game.player; const input = inputVector(); if (input.length > .1) player.facing = Math.atan2(input.y, input.x);
   player.dashTime = .17; player.dashCooldown = 2.45; player.invulnerable = Math.max(player.invulnerable, .3);
   if (game.upgrades.stride >= 3) player.speedBoost = 1.25;
   game.effects.push({ type: 'dash', x: player.x, y: player.y, angle: player.facing, life: .35, maxLife: .35 });
+  if (game.upgrades.afterimage) game.effects.push({ type: 'afterimage', x: player.x, y: player.y, angle: player.facing, radius: 58 + game.upgrades.afterimage * 12, life: .7, maxLife: .7, pulse: 0, color: UPGRADES.afterimage.accent });
   burst(player.x, player.y, game.hero.accent, 12, 1.5); game.camera.shake = 5; audio.dash();
 }
 
 function triggerAbility() {
-  if (!game || mode !== 'playing' || game.player.abilityCooldown > 0) return;
-  const player = game.player; const cooldown = (1 - (save.perks.charge || 0) * .03) * (1 - game.upgrades.capacitor * .1); player.attackPose = .3;
+  if (!game || game.ending || mode !== 'playing' || game.player.abilityCooldown > 0) return;
+  const player = game.player; const cooldown = (1 - (save.perks.charge || 0) * .03) * (1 - game.upgrades.capacitor * .1); player.attackPose = .3; game.contractStats.abilities++;
   if (game.classId === 'swordsman') {
     player.abilityCooldown = 7 * cooldown; const radius = 235 + game.upgrades.bastion * 18; game.effects.push({ type: 'slash', x: player.x, y: player.y, angle: 0, radius, full: true, life: .44, maxLife: .44, color: game.spec.accent });
     for (const enemy of game.enemies) if (distanceSq(player, enemy) < radius ** 2) damageEnemy(enemy, 88 * player.damage, true);
     game.hostile = game.hostile.filter(shot => distanceSq(shot, player) > 250 ** 2); game.camera.shake = 10;
+    const objective = game.stage.objective === 'defense' ? game.core : game.stage.objective === 'escort' ? game.escort : null;
+    if (objective && distanceSq(player, objective) < 280 ** 2) { game.objectiveGuard = 4; game.effects.push({ type: 'block', x: objective.x, y: objective.y, radius: 105, life: 4, maxLife: 4, color: game.spec.accent }); }
   } else if (game.classId === 'archer') {
     player.abilityCooldown = 7.5 * cooldown * (1 - game.upgrades.stormQuiver * .08); const target = nearestEnemy(player.x, player.y); const base = target ? Math.atan2(target.y - player.y, target.x - player.x) : player.facing;
     const spread = .105 + game.upgrades.stormQuiver * .012; for (let index = -3; index <= 3; index++) createProjectile(player.x, player.y, base + index * spread, { kind: 'arrow', speed: 780, damage: 58 * player.damage, pierce: 4, color: game.spec.accent, life: 1.8 });
@@ -518,6 +547,22 @@ function updateSharedWeapons(dt) {
       for (const enemy of game.enemies) if (distanceSq(p, enemy) < radius ** 2) { enemy.slow = game.fusions.has('glacier') ? 4 : 2.4; if (level >= 4 || game.fusions.has('glacier')) damageEnemy(enemy, (game.fusions.has('glacier') ? 34 : 18) * p.damage); }
     }
   }
+  if (game.upgrades.nova && game.lockedUpgrade !== 'nova') {
+    game.novaClock -= dt;
+    if (game.novaClock <= 0) {
+      const level = game.upgrades.nova; const radius = 245 + level * 25; game.novaClock = Math.max(6.5, 11 - level);
+      game.effects.push({ type: 'explosion', x: p.x, y: p.y, radius, life: .75, maxLife: .75, color: UPGRADES.nova.accent });
+      for (const enemy of game.enemies) if (distanceSq(p, enemy) < radius ** 2) damageEnemy(enemy, (44 + level * 17) * p.damage * (level >= 4 && (enemy.elite || enemy.bossData) ? 1.45 : 1), true);
+      if (level >= 3) { game.effects.push({ type: 'frost', x: p.x, y: p.y, radius: radius + 105, life: .9, maxLife: .9, color: '#f6db94' }); for (const enemy of game.enemies) if (distanceSq(p, enemy) >= radius ** 2 && distanceSq(p, enemy) < (radius + 105) ** 2) damageEnemy(enemy, 34 * p.damage); }
+    }
+  }
+  if (game.upgrades.singularity && game.lockedUpgrade !== 'singularity') {
+    game.singularityClock -= dt;
+    if (game.singularityClock <= 0) {
+      const level = game.upgrades.singularity; const target = nearestEnemy(p.x, p.y); game.singularityClock = Math.max(8, 13 - level);
+      if (target) game.effects.push({ type: 'singularity', x: target.x, y: target.y, radius: 125 + level * 28, level, life: 4.6, maxLife: 4.6, pulse: 0, color: UPGRADES.singularity.accent });
+    }
+  }
   if (game.upgrades.recovery) {
     game.recoveryClock -= dt;
     if (game.recoveryClock <= 0) { game.recoveryClock = 18; healPlayer(game.upgrades.recovery === 1 ? 4 : 7); }
@@ -526,7 +571,7 @@ function updateSharedWeapons(dt) {
 
 function damageEnemy(enemy, amount, heavy = false) {
   if (!enemy || enemy.dead) return; const critical = Math.random() < game.upgrades.fortune * .06 + game.upgrades.focus * .07 + (game.classId === 'archer' && ++game.player.shotCount % 5 === 0 ? 1 : 0);
-  let multiplier = 1 + game.upgrades.force * .08; if (game.specId === 'hunter' && (enemy.elite || enemy.bossData)) multiplier *= game.spec.eliteDamage * (1 + game.upgrades.preyMark * .15);
+  let multiplier = 1 + game.upgrades.force * .08; const quiet = game.upgrades.echoShell && game.time - game.player.lastDamage >= 7; if (quiet) multiplier *= [1, 1.1, 1.18, 1.28][game.upgrades.echoShell]; if (game.specId === 'hunter' && (enemy.elite || enemy.bossData)) multiplier *= game.spec.eliteDamage * (1 + game.upgrades.preyMark * .15);
   if (game.specId === 'executioner' && enemy.hp < enemy.maxHp * .45) multiplier *= 1 + game.upgrades.severance * .1;
   const warder = game.enemies.find(other => other !== enemy && !other.dead && other.support === 'shield' && distanceSq(other, enemy) < 165 ** 2); if (warder) multiplier *= .72;
   if (enemy.forgeArmor > 0) multiplier *= .55;
@@ -549,8 +594,9 @@ function killEnemy(enemy) {
     return;
   }
   game.kills++; save.enemyKills[enemy.id] = (save.enemyKills[enemy.id] || 0) + 1; if (game.stage.objective === 'defense' && game.kills % 18 === 0) repairCore(); if (game.specId === 'executioner') game.player.momentum = Math.min(game.upgrades.momentum >= 2 ? 3 : 1, (game.player.momentum || 0) + 1);
+  if (game.upgrades.overcharger) game.player.abilityCooldown = Math.max(0, game.player.abilityCooldown - (enemy.elite ? .35 + game.upgrades.overcharger * .25 : .04 + game.upgrades.overcharger * .04));
   if (enemy.modifier === 'volatile') game.effects.push({ type: 'danger', x: enemy.x, y: enemy.y, radius: 72, warning: .65, pulse: 0, life: 2.2, maxLife: 2.2, color: '#e67b61' });
-  if (enemy.elite) { game.elitesKilled++; if (game.upgrades.recovery >= 3) healPlayer(8); }
+  if (enemy.elite) { if (!enemy.secretGuardian) game.elitesKilled++; if (game.upgrades.recovery >= 3) healPlayer(8); }
   const shardCount = enemy.elite ? 5 : enemy.xp >= 4 ? 2 : 1;
   for (let index = 0; index < shardCount; index++) game.shards.push({ x: enemy.x + (Math.random() - .5) * 18, y: enemy.y + (Math.random() - .5) * 18, radius: 4, value: enemy.xp / shardCount, age: 0, vx: (Math.random() - .5) * 45, vy: (Math.random() - .5) * 45 });
   rollDrop(enemy);
@@ -566,7 +612,7 @@ function repairCore() {
 }
 
 function rollDrop(enemy) {
-  const bonus = 1 + (save.perks.salvage || 0) * .3 + game.upgrades.salvage * .5; const elite = enemy.elite;
+  const bonus = 1 + (save.perks.salvage || 0) * .3 + game.upgrades.salvage * .5 + game.upgrades.archiveKey * .4; const elite = enemy.elite;
   let type = Math.random() < (elite ? .055 : .0045) * bonus ? 'magnet' : Math.random() < (elite ? .17 : .012) * bonus ? 'scrap' : null;
   if (elite && game.upgrades.salvage >= 3) type ||= Math.random() < .7 ? 'scrap' : 'magnet';
   if (type) game.drops.push({ type, x: enemy.x, y: enemy.y, radius: 11, age: 0, phase: Math.random() * TAU, magnetized: false });
@@ -578,9 +624,14 @@ function damagePlayer(amount) {
     p.blockCooldown = Math.max(8, 18 - game.upgrades.aegis * 2.5); p.invulnerable = .35; game.effects.push({ type: 'block', x: p.x, y: p.y, radius: 80 + game.upgrades.aegis * 20, life: .45, maxLife: .45, color: game.spec.accent });
     if (game.upgrades.aegis >= 2) for (const enemy of game.enemies) if (distanceSq(p, enemy) < 125 ** 2) damageEnemy(enemy, 32 * p.damage, true); audio.pulse(); return;
   }
-  const damage = Math.max(1, amount * (1 - clamp(p.armor, 0, .55))); p.hp -= damage; p.invulnerable = .5; p.lastDamage = game.time;
+  const quietArmor = game.upgrades.echoShell >= 3 && game.time - p.lastDamage >= 7 ? .1 : 0; const damage = Math.max(1, amount * (1 - clamp(p.armor + quietArmor, 0, .62))); p.hp -= damage; p.invulnerable = .5; p.lastDamage = game.time; game.contractStats.hits++;
   if (game.fusions.has('livingWall')) { game.effects.push({ type: 'thorns', x: p.x, y: p.y, radius: 125, life: .42, maxLife: .42, color: FUSIONS.livingWall.accent }); for (const enemy of game.enemies) if (distanceSq(p, enemy) < 135 ** 2) damageEnemy(enemy, 38 * p.damage, true); }
-  game.camera.shake = 8; flash(.1, '#e66b5b'); audio.hurt(); if (p.hp <= 0) finishRun(false, 'Носитель потерян. Но найденные страницы и Эхо сохранены.');
+  game.camera.shake = 8; flash(.1, '#e66b5b'); audio.hurt();
+  if (p.hp <= 0 && game.upgrades.phaseHeart && !game.phaseHeartUsed) {
+    game.phaseHeartUsed = true; p.hp = p.maxHp * .35; p.invulnerable = 2; game.effects.push({ type: 'explosion', x: p.x, y: p.y, radius: 260, life: .9, maxLife: .9, color: UPGRADES.phaseHeart.accent });
+    for (const enemy of game.enemies) if (distanceSq(p, enemy) < 270 ** 2) damageEnemy(enemy, 110 * p.damage, true); announce('ФАЗА ВОССТАНОВЛЕНА', 'СЕРДЦЕ СРАБОТАЛО', 'Поражение отменено один раз.', 1900); return;
+  }
+  if (p.hp <= 0) finishRun(false, 'Носитель потерян. Но найденные страницы и Эхо сохранены.');
 }
 
 function healPlayer(amount) { const p = game.player; const before = p.hp; const hardScale = game.difficulty === 'hard' ? .65 : 1; p.hp = Math.min(p.maxHp, p.hp + amount * hardScale); if (p.hp > before) game.numbers.push({ x: p.x, y: p.y - 24, text: `+${Math.round(p.hp - before)}`, life: .75, color: '#76e5b8' }); }
@@ -592,14 +643,14 @@ function burst(x, y, color, count = 8, force = 1) {
 
 function update(dt) {
   if (!game || mode !== 'playing' || game.ended) return;
-  dt = Math.min(dt, .034); game.time += dt; const p = game.player; const input = inputVector();
+  dt = Math.min(dt, .034); if (game.ending) { updateVictory(dt); return; } game.time += dt; const p = game.player; const input = inputVector();
   p.dashCooldown = Math.max(0, p.dashCooldown - dt); p.abilityCooldown = Math.max(0, p.abilityCooldown - dt);
   p.blockCooldown = Math.max(0, p.blockCooldown - dt); p.momentum = Math.max(0, (p.momentum || 0) - dt * .18);
-  game.invertControls = Math.max(0, game.invertControls - dt); game.lockedTimer = Math.max(0, game.lockedTimer - dt); if (!game.lockedTimer) game.lockedUpgrade = null;
+  game.invertControls = Math.max(0, game.invertControls - dt); game.lockedTimer = Math.max(0, game.lockedTimer - dt); game.objectiveGuard = Math.max(0, game.objectiveGuard - dt); game.repairFx = Math.max(0, game.repairFx - dt); if (!game.lockedTimer) game.lockedUpgrade = null;
   p.invulnerable = Math.max(0, p.invulnerable - dt); p.dashTime = Math.max(0, p.dashTime - dt); p.speedBoost = Math.max(0, p.speedBoost - dt);
   p.attackPose = Math.max(0, p.attackPose - dt); p.overdrive = Math.max(0, p.overdrive - dt); p.solarBoost = Math.max(0, (p.solarBoost || 0) - dt); p.step += dt * (input.length ? 8 : 2);
   if (input.length) { p.facing = Math.atan2(input.y, input.x); const multiplier = p.dashTime > 0 ? 4.1 : p.speedBoost > 0 ? 1.32 : 1; p.x += input.x * p.speed * multiplier * dt; p.y += input.y * p.speed * multiplier * dt; }
-  updateObjective(dt);
+  updateObjective(dt); updateSecretRoom(); if (mode !== 'playing' || game.ending) return;
   game.spawnClock -= dt;
   if (game.spawnClock <= 0 && game.enemies.length < 125) {
     const rank = stageRank(); const openPortals = game.stage.objective === 'portals' ? game.enemies.filter(enemy => enemy.objectiveTarget && !enemy.dead).length : 0; const batch = (game.time > 150 && Math.random() < .24 ? 2 : 1) + (openPortals && Math.random() < openPortals * .1 ? 1 : 0);
@@ -612,12 +663,25 @@ function update(dt) {
   game.camera.x += (p.x - game.camera.x) * Math.min(1, dt * 7); game.camera.y += (p.y - game.camera.y) * Math.min(1, dt * 7); game.camera.shake *= Math.pow(.02, dt);
 }
 
+function updateSecretRoom() {
+  const room = game.secretRoom; const revealRange = game.classId === 'mage' ? 320 : 220; const distance = distanceSq(game.player, room);
+  if (!room.revealed && distance < revealRange ** 2) { room.revealed = true; announce('СКРЫТАЯ СИГНАТУРА', `НАЙДЕНА: ${room.type}`, 'Внутри Архив прячет редкую награду.', 1800); }
+  if (room.revealed && !room.active && !room.cleared && distance < (room.radius + 25) ** 2) {
+    room.active = true; const count = game.difficulty === 'hard' ? 3 : 2;
+    for (let index = 0; index < count; index++) { const guardian = spawnEnemy(game.stage.enemies[index % game.stage.enemies.length], { elite: true }); const angle = index * TAU / count; guardian.x = room.x + Math.cos(angle) * 125; guardian.y = room.y + Math.sin(angle) * 125; guardian.secretGuardian = true; guardian.siege = false; }
+    announce('КОМНАТА ЗАПЕЧАТАНА', 'СТРАЖИ ПРОБУЖДЕНЫ', 'Зачисти комнату, чтобы открыть скрытую реликвию.', 1900);
+  }
+  if (room.active && !room.cleared && !game.enemies.some(enemy => enemy.secretGuardian && !enemy.dead)) {
+    room.cleared = true; game.contractStats.secret = true; save.secretRoomsFound++; persist(); burst(room.x, room.y, RARITIES.secret.color, 34, 2); openSecretChoice();
+  }
+}
+
 function updateObjective(dt) {
   const { stage, player } = game; let lead = { survive: 26, seals: 34, hunt: 32, defense: 38, boss: 55, portals: 48, escort: 48, zone: 50, parts: 48, tracks: 55, twins: 62 }[stage.objective] || 30;
   if (game.difficulty === 'hard') lead += 28;
   if (stage.objective === 'seals') {
     for (const seal of game.seals) if (seal.charge < 1 && distanceSq(player, seal) < 82 ** 2) {
-      seal.charge = Math.min(1, seal.charge + dt / 6); if (seal.charge === 1) { burst(seal.x, seal.y, stage.accent, 22, 1.6); announce('ПЕЧАТЬ ОТВЕЧАЕТ', `${game.seals.filter(item => item.charge >= 1).length} ИЗ 3`, 'Сигнал становится громче.', 1500); }
+      seal.charge = Math.min(1, seal.charge + dt * (game.classId === 'mage' ? 1.25 : 1) / 6); if (seal.charge === 1) { burst(seal.x, seal.y, stage.accent, 22, 1.6); announce('ПЕЧАТЬ ОТВЕЧАЕТ', `${game.seals.filter(item => item.charge >= 1).length} ИЗ 3`, 'Сигнал становится громче.', 1500); }
     }
   }
   if (stage.objective === 'hunt' && game.elitesSpawned < 3 && game.time >= game.nextElite) {
@@ -635,11 +699,16 @@ function updateObjective(dt) {
     if (machine.hp <= 0) { finishRun(false, 'Древняя машина остановлена. Собранные записи сохранены.'); return; }
   }
   if (stage.objective === 'zone') {
-    const zone = game.zone; zone.moveClock -= dt; if (distanceSq(player, zone) < zone.radius ** 2) zone.charge = Math.min(1, zone.charge + dt / 72);
+    const zone = game.zone; zone.moveClock -= dt; if (distanceSq(player, zone) < zone.radius ** 2) zone.charge = Math.min(1, zone.charge + dt * (game.classId === 'mage' ? 1.25 : 1) / 72);
     if (zone.moveClock <= 0) { const angle = Math.random() * TAU; zone.x = player.x + Math.cos(angle) * 360; zone.y = player.y + Math.sin(angle) * 360; zone.moveClock = 22; announce('МАЯК СМЕСТИЛСЯ', 'СЛЕДУЙ ЗА СВЕТОМ', 'Безопасная область уже движется.', 1400); }
   }
   if (stage.objective === 'parts') for (const part of game.parts) if (!part.found && distanceSq(player, part) < 38 ** 2) { part.found = true; game.objectiveCount++; burst(part.x, part.y, stage.accent, 18, 1.4); announce('ДЕТАЛЬ НАЙДЕНА', `${game.objectiveCount} ИЗ 4`, 'Механизм становится цельным.', 1200); }
   if (stage.objective === 'tracks') for (const track of game.tracks) if (!track.found && distanceSq(player, track) < 52 ** 2) { track.found = true; game.objectiveCount++; burst(track.x, track.y, stage.accent, 12, 1); announce('СЛЕД ВОССТАНОВЛЕН', `${game.objectiveCount} ИЗ 5`, game.objectiveCount === 5 ? 'Невидимый противник больше не скрывается.' : 'След ведёт дальше.', 1300); }
+  const repairTarget = stage.objective === 'defense' ? game.core : stage.objective === 'escort' ? game.escort : null;
+  if (game.classId === 'mechanist' && repairTarget && distanceSq(player, repairTarget) < 215 ** 2 && repairTarget.hp < repairTarget.maxHp) {
+    repairTarget.hp = Math.min(repairTarget.maxHp, repairTarget.hp + repairTarget.maxHp * .0012 * dt);
+    if (!game.repairFx) { game.repairFx = 1.2; game.effects.push({ type: 'repair', x: player.x, y: player.y, x2: repairTarget.x, y2: repairTarget.y, life: .45, maxLife: .45, color: game.spec.accent }); }
+  }
   if ((game.anomalyElite || game.signalElite) && !game.eventEliteSpawned && game.time > (game.signalElite ? 18 : 35)) { game.eventEliteSpawned = true; const elite = spawnEnemy(undefined, { elite: true }); game.effects.push({ type: 'mark', target: elite, life: 7, maxLife: 7, color: '#e7bd67' }); announce('ДОПОЛНИТЕЛЬНЫЙ СИГНАЛ', 'УСИЛЕННАЯ ЦЕЛЬ', 'Событие изменило состав уровня.', 1600); }
   updateHardRules(dt);
   if (stage.endless) {
@@ -776,6 +845,7 @@ function updateHostile(dt) {
 }
 
 function damageObjective(target, amount) {
+  if (game.objectiveGuard > 0) amount *= .65;
   if (target === game.core) { absorbDamage(target, amount); target.lastDamage = game.time; }
   else target.hp = Math.max(0, target.hp - amount);
   game.camera.shake = 5;
@@ -821,6 +891,17 @@ function updateEffects(dt) {
       }
       if (effect.pulse <= 0) effect.pulse = .55;
     }
+    if (effect.type === 'afterimage') {
+      effect.pulse -= dt;
+      if (effect.pulse <= 0) { effect.pulse = .24; for (const enemy of game.enemies) if (!enemy.dead && distanceSq(effect, enemy) < effect.radius ** 2) damageEnemy(enemy, (13 + game.upgrades.afterimage * 7) * game.player.damage); }
+      if (game.upgrades.afterimage >= 3 && effect.life <= .12 && !effect.final) { effect.final = true; game.effects.push({ type: 'explosion', x: effect.x, y: effect.y, radius: effect.radius + 55, life: .38, maxLife: .38, color: effect.color }); }
+    }
+    if (effect.type === 'singularity') {
+      effect.pulse -= dt;
+      for (const enemy of game.enemies) if (!enemy.dead && distanceSq(effect, enemy) < effect.radius ** 2) { const pull = normalize(effect.x - enemy.x, effect.y - enemy.y); enemy.x += pull.x * (90 + effect.level * 25) * dt; enemy.y += pull.y * (90 + effect.level * 25) * dt; if (effect.pulse <= 0) damageEnemy(enemy, (18 + effect.level * 8) * game.player.damage); }
+      if (effect.pulse <= 0) effect.pulse = .5;
+      if (effect.life <= 0 && effect.level >= 3 && !effect.collapsed) { effect.collapsed = true; game.effects.push({ type: 'explosion', x: effect.x, y: effect.y, radius: effect.radius + 70, life: .55, maxLife: .55, color: effect.color }); for (const enemy of game.enemies) if (!enemy.dead && distanceSq(effect, enemy) < (effect.radius + 70) ** 2) damageEnemy(enemy, 62 * game.player.damage, true); }
+    }
     if (effect.type === 'danger') {
       effect.warning -= dt; effect.pulse -= dt;
       if (effect.warning <= 0 && effect.pulse <= 0 && distanceSq(effect, game.player) < effect.radius ** 2) { effect.pulse = .75; damagePlayer(10 + stageRank() * 1.2); }
@@ -853,6 +934,7 @@ function updateDrops(dt) {
       for (const shard of game.shards) shard.magnetized = true; for (const other of game.drops) if (other !== drop) other.magnetized = true;
       announce('МАГНИТ АКТИВИРОВАН', 'КАРТА ОТДАЁТ ВСЁ', 'Весь оставленный опыт и Scrap летят к носителю.', 1800);
     } else {
+      game.contractStats.scrap++;
       const base = .24 + game.upgrades.salvage * .04 + game.upgrades.repairProtocol * .08; const spec = game.spec.scrapBonus || 1; healPlayer(p.maxHp * base * spec);
       if (game.upgrades.repairProtocol >= 3) game.mines.push({ x: p.x, y: p.y, radius: 10, arm: 0, life: 10, level: Math.max(1, game.upgrades.mines), pulse: 0 });
       toast(`SCRAP // +${Math.round(base * spec * 100)}% ЗДОРОВЬЯ`);
@@ -869,7 +951,7 @@ function updateParticles(dt) {
 }
 
 function addXp(amount) {
-  const p = game.player; const scale = (1 + game.upgrades.wisdom * .12 + (save.perks.learning || 0) * .05) * (game.xpScale || 1); p.xp += amount * scale;
+  const p = game.player; const scale = (1 + game.upgrades.wisdom * .12 + game.upgrades.archiveKey * .25 + (save.perks.learning || 0) * .05) * (game.xpScale || 1); p.xp += amount * scale;
   while (p.xp >= p.nextXp) { p.xp -= p.nextXp; p.level++; p.nextXp = xpForLevel(p.level); game.pendingLevels++; }
   if (game.pendingLevels > 0 && mode === 'playing') openUpgradeChoice();
 }
@@ -880,35 +962,49 @@ function fusionReady(id, fusion) {
 }
 
 function openUpgradeChoice() {
-  if (!game || !game.pendingLevels) return; const valid = Object.entries(UPGRADES).filter(([id, item]) => (!item.classes || item.classes.includes(game.classId)) && (!item.spec || item.spec === game.specId) && game.upgrades[id] < item.max).map(([id]) => id);
+  if (!game || !game.pendingLevels) return; const valid = Object.entries(UPGRADES).filter(([id, item]) => item.rarity !== 'secret' && (!item.classes || item.classes.includes(game.classId)) && (!item.spec || item.spec === game.specId) && game.upgrades[id] < item.max).map(([id]) => id);
   const ready = Object.entries(FUSIONS).filter(([id, fusion]) => fusionReady(id, fusion)).map(([id]) => `fusion:${id}`);
-  let choices = chooseUnique(valid, Math.max(0, 3 - Math.min(1, ready.length))); if (ready.length) choices.unshift(ready[0]); choices = choices.slice(0, 3);
+  const weight = id => { const rarity = UPGRADES[id].rarity; const boost = game.upgrades.archiveKey ? ({ common: 1, rare: 1.25, epic: 1.8, legendary: 2.8 })[rarity] : 1; return RARITIES[rarity].weight * boost; };
+  let choices = weightedUnique(valid, Math.max(0, 3 - Math.min(1, ready.length)), weight); if (ready.length) choices.unshift(ready[0]); choices = choices.slice(0, 3);
   if (!choices.length) { game.pendingLevels = 0; return; }
-  choiceActions = choices; ui.cards.innerHTML = ''; ui.choiceTitle.textContent = ready.length ? 'СЛИЯНИЕ ДОСТУПНО' : 'ВЫБЕРИ РЕЛИКВИЮ';
+  showUpgradeChoices(choices, ready.length ? 'СЛИЯНИЕ ДОСТУПНО' : 'ВЫБЕРИ РЕЛИКВИЮ', 'level');
+}
+
+function openSecretChoice() {
+  const valid = Object.entries(UPGRADES).filter(([id, item]) => (!item.classes || item.classes.includes(game.classId)) && (!item.spec || item.spec === game.specId) && game.upgrades[id] < item.max).map(([id]) => id);
+  const secret = chooseUnique(valid.filter(id => UPGRADES[id].rarity === 'secret'), 1); const premium = valid.filter(id => !secret.includes(id) && ['epic', 'legendary'].includes(UPGRADES[id].rarity));
+  const choices = [...secret, ...weightedUnique(premium, 3 - secret.length, id => RARITIES[UPGRADES[id].rarity].weight)].slice(0, 3);
+  if (choices.length < 3) choices.push(...chooseUnique(valid.filter(id => !choices.includes(id) && UPGRADES[id].rarity !== 'common'), 3 - choices.length));
+  showUpgradeChoices(choices, 'ТАЙНАЯ НАГРАДА', 'secret');
+}
+
+function showUpgradeChoices(choices, title, source) {
+  choiceSource = source; choiceActions = choices; ui.cards.innerHTML = ''; ui.choiceTitle.textContent = title;
+  ui.choiceSubtitle.textContent = source === 'secret' ? 'Комната раскрыла предметы, недоступные при обычном повышении уровня.' : 'Найденная запись навсегда появится в Книге.';
   choices.forEach((key, index) => {
     const fusionId = key.startsWith('fusion:') ? key.slice(7) : null; const data = fusionId ? FUSIONS[fusionId] : UPGRADES[key]; const level = fusionId ? 1 : game.upgrades[key] + 1;
-    const button = document.createElement('button'); button.className = 'choice-card'; button.style.setProperty('--card-accent', data.accent);
+    const rarity = fusionId ? 'legendary' : data.rarity; const rarityData = RARITIES[rarity]; const button = document.createElement('button'); button.className = `choice-card rarity-${rarity}`; button.style.setProperty('--card-accent', data.accent); button.style.setProperty('--rarity-color', rarityData.color);
     const category = data.category === 'artifacts' ? 'АРТЕФАКТ' : data.category === 'talents' ? 'ТАЛАНТ СПЕЦИАЛИЗАЦИИ' : 'ОРУЖИЕ';
-    button.innerHTML = `<div class="choice-icon"><span>${data.icon}</span></div><small>${fusionId ? 'ЗАПРЕТНОЕ СЛИЯНИЕ' : `${category} // УРОВЕНЬ ${level}`}</small><h3>${data.name}</h3><p>${fusionId ? data.recipe.map(part => UPGRADES[part].name).join(' + ') : data.descriptions[level - 1]}</p><div class="level-pips">${Array.from({ length: fusionId ? 1 : data.max }, (_, pip) => `<i class="${pip < level ? 'on' : ''}"></i>`).join('')}</div>`;
+    button.innerHTML = `<div class="choice-icon"><span>${data.icon}</span></div><small><b>${rarityData.name}</b> // ${fusionId ? 'СЛИЯНИЕ' : `${category} · УРОВЕНЬ ${level}`}</small><h3>${data.name}</h3><p>${fusionId ? data.recipe.map(part => UPGRADES[part].name).join(' + ') : data.descriptions[level - 1]}</p><div class="level-pips">${Array.from({ length: fusionId ? 1 : data.max }, (_, pip) => `<i class="${pip < level ? 'on' : ''}"></i>`).join('')}</div>`;
     button.addEventListener('click', () => chooseUpgrade(index)); ui.cards.append(button);
   });
   audio.level(); setScreen('choice');
 }
 
 function chooseUpgrade(index) {
-  const key = choiceActions[index]; if (!key || !game) return;
+  const key = choiceActions[index]; if (!key || !game) return; const source = choiceSource;
   if (key.startsWith('fusion:')) { const id = key.slice(7); game.fusions.add(id); unlockCodex('fusions', id); burst(game.player.x, game.player.y, FUSIONS[id].accent, 30, 2); }
   else {
     game.upgrades[key]++; unlockCodex('items', key); applyUpgradeStats(game, key);
   }
-  game.pendingLevels--; updateBuild(); audio.click();
+  if (source === 'level') game.pendingLevels--; else game.secretRoom.rewardOpened = true; updateBuild(); audio.click();
   if (game.pendingLevels > 0) openUpgradeChoice(); else setScreen('playing');
 }
 
 function updateBuild() {
   if (!game) return; ui.buildSlots.innerHTML = '';
   for (const [id, level] of Object.entries(game.upgrades).filter(([, level]) => level > 0)) {
-    const item = UPGRADES[id]; const slot = document.createElement('div'); slot.className = 'build-slot'; slot.style.setProperty('--slot-accent', item.accent); slot.title = item.name; slot.innerHTML = `${item.icon}<b>${level}</b>`; ui.buildSlots.append(slot);
+    const item = UPGRADES[id]; const slot = document.createElement('div'); slot.className = `build-slot rarity-${item.rarity}`; slot.style.setProperty('--slot-accent', item.accent); slot.style.setProperty('--rarity-color', RARITIES[item.rarity].color); slot.title = `${item.name} // ${RARITIES[item.rarity].name}`; slot.innerHTML = `${item.icon}<b>${level}</b>`; ui.buildSlots.append(slot);
   }
   for (const id of game.fusions) { const fusion = FUSIONS[id]; const slot = document.createElement('div'); slot.className = 'build-slot fused'; slot.title = fusion.name; slot.innerHTML = `${fusion.icon}<b>F</b>`; ui.buildSlots.append(slot); }
   const fusion = FUSIONS[save.pinnedFusion]; ui.pinnedRecipe.classList.toggle('hidden', !fusion); if (fusion) { const parts = fusion.recipe.map((id, index) => `${UPGRADES[id].name}: ${game.upgrades[id]}/${fusion.levels[index]}`); ui.pinnedRecipe.innerHTML = `<strong>${fusion.name}</strong>${parts.join('<br>')}`; }
@@ -930,19 +1026,45 @@ function missionState() {
   return { text: `${OBJECTIVES[stage.objective][0]} // ${formatTime(remaining)}`, progress: clamp(game.time / stage.duration, 0, 1) };
 }
 
+function contractState() {
+  const id = game.contractId; const stats = game.contractStats; const contract = CONTRACTS[id]; if (!contract) return { text: 'БЕЗ КОНТРАКТА', progress: 0, complete: false, failed: false };
+  if (id === 'cull') return { text: `${contract.name} · ${game.kills}/75`, progress: game.kills / 75, complete: game.kills >= 75, failed: false };
+  if (id === 'unbroken') return { text: `${contract.name} · ${stats.hits}/5 ПОПАДАНИЙ`, progress: 1 - stats.hits / 6, complete: stats.hits <= 5, failed: stats.hits > 5 };
+  if (id === 'discipline') return { text: `${contract.name} · ${stats.abilities}/8`, progress: stats.abilities / 8, complete: stats.abilities >= 8, failed: false };
+  if (id === 'pristine') { const target = game.stage.objective === 'defense' ? game.core : game.escort; const ratio = target.hp / target.maxHp; return { text: `${contract.name} · ${Math.ceil(ratio * 100)}%`, progress: ratio, complete: ratio >= .7, failed: ratio < .7 }; }
+  if (id === 'explorer') return { text: `${contract.name} · ${stats.secret ? 'ВЫПОЛНЕНО' : 'НЕ НАЙДЕНО'}`, progress: stats.secret ? 1 : 0, complete: stats.secret, failed: false };
+  return { text: `${contract.name} · ${stats.scrap ? 'НАРУШЕН' : '0 SCRAP'}`, progress: stats.scrap ? 0 : 1, complete: stats.scrap === 0, failed: stats.scrap > 0 };
+}
+
 function updateHud() {
-  const p = game.player; const mission = missionState(); ui.timer.textContent = game.stage.endless ? formatTime(game.time) : formatTime(Math.max(0, game.stage.duration - game.time));
+  const p = game.player; const mission = missionState(); const contract = contractState(); ui.timer.textContent = game.stage.endless ? formatTime(game.time) : formatTime(Math.max(0, game.stage.duration - game.time));
   ui.level.textContent = p.level; ui.kills.textContent = game.kills; ui.health.style.width = `${clamp(p.hp / p.maxHp, 0, 1) * 100}%`;
   ui.healthText.textContent = `${Math.ceil(Math.max(0, p.hp))} / ${p.maxHp}`; ui.xp.style.width = `${p.xp / p.nextXp * 100}%`;
   ui.dash.querySelector('i').style.height = `${p.dashCooldown / 2.45 * 100}%`; ui.ability.querySelector('i').style.height = `${p.abilityCooldown / (game.classId === 'mage' ? 9 : game.classId === 'mechanist' ? 10 : 7.5) * 100}%`;
   ui.missionText.textContent = mission.text; ui.missionFill.style.width = `${clamp(mission.progress, 0, 1) * 100}%`;
+  ui.contractText.textContent = contract.text; ui.contractText.classList.toggle('failed', contract.failed);
   if (game.activeBoss) { const bosses = game.enemies.filter(enemy => !enemy.dead && enemy.bossData); const hp = bosses.reduce((sum, enemy) => sum + enemy.hp, 0); const maxHp = bosses.reduce((sum, enemy) => sum + enemy.maxHp, 0); const ratio = clamp(hp / maxHp, 0, 1); ui.bossHealth.style.width = `${ratio * 100}%`; ui.bossHealthText.textContent = `${Math.ceil(ratio * 100)}% // ФАЗА ${Math.max(...bosses.map(enemy => enemy.bossPhase))}`; }
 }
 
 function finishRun(victory, reason = '') {
-  if (!game || game.ended) return; game.ended = true; game.victory = victory; const rank = game.stage.endless ? 5 : game.stage.number;
-  const baseReward = Math.floor(game.kills / 4 + rank * (victory ? 8 : 2)); const reward = Math.floor(baseReward * (1 + (save.perks.greed || 0) * .1) * game.rewardScale * (game.difficulty === 'hard' ? 1.35 : 1)); game.endReward = reward;
-  save.echoes += reward; save.totalKills += game.kills; save.bestTime = Math.max(save.bestTime, Math.floor(game.time));
+  if (!game || game.ended || game.ending) return; if (victory && !game.stage.endless) { beginVictory(reason); return; } completeRun(victory, reason);
+}
+
+function beginVictory(reason) {
+  game.ending = { time: 2.55, reason }; game.hostile = []; game.hazards = []; game.effects = [];
+  for (let ring = 0; ring < 3; ring++) game.effects.push({ type: 'explosion', x: game.player.x, y: game.player.y, radius: 180 + ring * 95, life: .8 + ring * .35, maxLife: .8 + ring * .35, color: ring === 1 ? game.stage.accent : game.spec.accent });
+  burst(game.player.x, game.player.y, game.stage.accent, 56, 3); game.camera.shake = 22; ui.victoryTitle.textContent = game.stage.id === 'double-signal' ? 'КАМПАНИЯ ВОССТАНОВЛЕНА' : game.stage.title.toUpperCase(); ui.victoryScene.classList.add('show'); audio.victory();
+}
+
+function updateVictory(dt) {
+  game.ending.time -= dt; for (const effect of game.effects) effect.life -= dt * .72; game.effects = game.effects.filter(effect => effect.life > 0); updateParticles(dt * .45); game.camera.shake *= Math.pow(.05, dt);
+  if (game.ending.time <= 0) { const reason = game.ending.reason; ui.victoryScene.classList.remove('show'); game.ending = null; completeRun(true, reason); }
+}
+
+function completeRun(victory, reason = '') {
+  game.ended = true; game.victory = victory; const rank = game.stage.endless ? 5 : game.stage.number; const contract = contractState(); const contractReward = victory && game.contractId && contract.complete ? CONTRACTS[game.contractId].reward : 0;
+  const baseReward = Math.floor(game.kills / 4 + rank * (victory ? 8 : 2)); const reward = Math.floor(baseReward * (1 + (save.perks.greed || 0) * .1) * game.rewardScale * (game.difficulty === 'hard' ? 1.35 : 1)); game.endReward = reward + contractReward;
+  save.echoes += game.endReward; save.totalKills += game.kills; save.bestTime = Math.max(save.bestTime, Math.floor(game.time)); if (contractReward && !save.completedContracts.includes(game.contractId)) save.completedContracts.push(game.contractId);
   if (victory && !game.stage.endless) {
     const list = game.difficulty === 'hard' ? save.hardCompletedStages : save.completedStages; if (!list.includes(game.stage.id)) list.push(game.stage.id);
     const key = `${game.difficulty}:${game.stage.id}`; save.stageTimes[key] = save.stageTimes[key] ? Math.min(save.stageTimes[key], Math.floor(game.time)) : Math.floor(game.time); save.pendingEvent = true;
@@ -952,12 +1074,12 @@ function finishRun(victory, reason = '') {
   $('endEyebrow').textContent = victory ? 'СЕКТОР ОСВОБОЖДЁН' : 'НОСИТЕЛЬ ОТСТУПИЛ';
   $('endTitle').textContent = victory ? game.stage.id === 'double-signal' ? 'КАМПАНИЯ ВОССТАНОВЛЕНА' : 'МАРШРУТ ВОССТАНОВЛЕН' : 'АРХИВ СОХРАНИЛ ПАМЯТЬ';
   $('endText').textContent = reason || (victory ? game.stage.id === 'double-signal' ? 'Двенадцать секторов завершены. Бесконечный разлом теперь доступен.' : 'Выбери одно событие перед следующим сектором. Все открытия записаны в Книгу.' : 'Повтори уровень: валюта, Книга и постоянные улучшения не потеряны.');
-  $('resultTime').textContent = formatTime(game.time); $('resultKills').textContent = game.kills; $('resultEchoes').textContent = `+${reward}`;
-  $('nextStage').textContent = victory && !game.stage.endless ? 'ВЫБРАТЬ СОБЫТИЕ' : 'ВЕРНУТЬСЯ К КАРТЕ'; setScreen('end'); if (victory) audio.victory();
+  $('resultTime').textContent = formatTime(game.time); $('resultKills').textContent = game.kills; $('resultEchoes').textContent = `+${game.endReward}`; ui.resultContract.textContent = game.contractId ? contractReward ? `+${contractReward}` : 'НЕ ВЫП.' : '—';
+  $('nextStage').textContent = victory && !game.stage.endless ? 'ВЫБРАТЬ СОБЫТИЕ' : 'ВЕРНУТЬСЯ К КАРТЕ'; setScreen('end');
 }
 
 function quitToMenu() { game = null; ui.boss.classList.add('hidden'); refreshMetaUI(); setScreen('menu'); }
-function pauseGame() { if (mode === 'playing') setScreen('pause'); else if (mode === 'pause') setScreen('playing'); }
+function pauseGame() { if (game?.ending) return; if (mode === 'playing') setScreen('pause'); else if (mode === 'pause') setScreen('playing'); }
 
 function render(now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#050b09'; ctx.fillRect(0, 0, width, height);
@@ -970,7 +1092,7 @@ function render(now) {
   for (const particle of game.particles) { ctx.globalAlpha = clamp(particle.life / particle.maxLife, 0, 1); ctx.fillStyle = particle.color; ctx.fillRect(particle.x - particle.size / 2, particle.y - particle.size / 2, particle.size, particle.size); }
   ctx.globalAlpha = 1; ctx.textAlign = 'center'; for (const number of game.numbers) { ctx.globalAlpha = clamp(number.life / .3, 0, 1); ctx.fillStyle = number.color; ctx.font = `${number.critical ? 800 : 600} ${number.critical ? 15 : 11}px Segoe UI`; ctx.fillText(number.text, number.x, number.y); } ctx.globalAlpha = 1; ctx.restore();
   const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .22, width / 2, height / 2, Math.max(width, height) * .72); vignette.addColorStop(0, 'transparent'); vignette.addColorStop(1, 'rgba(0,0,0,.56)'); ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
-  if (['playing', 'pause', 'choice'].includes(mode)) drawMinimap();
+  if (!game.ending && ['playing', 'pause', 'choice'].includes(mode)) drawMinimap();
 }
 
 function drawAmbient(time) {
@@ -1000,6 +1122,7 @@ function drawFloor() {
 }
 
 function drawObjectives() {
+  drawSecretRoom();
   if (game.stage.objective === 'seals') for (const seal of game.seals) {
     const pulse = 1 + Math.sin(game.time * 3 + seal.x) * .05; ctx.save(); ctx.translate(seal.x, seal.y); ctx.scale(pulse, pulse);
     ctx.strokeStyle = seal.charge >= 1 ? game.stage.accent : 'rgba(143,174,161,.32)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 58, -Math.PI / 2, -Math.PI / 2 + TAU * seal.charge); ctx.stroke();
@@ -1016,6 +1139,13 @@ function drawObjectives() {
   if (game.stage.objective === 'parts') for (const part of game.parts) if (!part.found) { ctx.save(); ctx.translate(part.x, part.y); ctx.rotate(game.time); ctx.strokeStyle = game.stage.accent; ctx.fillStyle = '#0b1714'; ctx.lineWidth = 2; polygon(0, 0, 15, 8); ctx.fill(); ctx.stroke(); ctx.fillStyle = game.stage.accent; ctx.beginPath(); ctx.arc(0, 0, 4, 0, TAU); ctx.fill(); ctx.restore(); }
   if (game.stage.objective === 'tracks') for (const track of game.tracks) if (!track.found) { ctx.save(); ctx.translate(track.x, track.y); ctx.rotate(.3); ctx.fillStyle = `${game.stage.accent}88`; ctx.beginPath(); ctx.ellipse(-8, 0, 5, 11, 0, 0, TAU); ctx.ellipse(8, 15, 5, 11, 0, 0, TAU); ctx.fill(); ctx.restore(); }
   for (const hazard of game.hazards) if (hazard.warning <= 0) { ctx.fillStyle = 'rgba(195,64,49,.12)'; ctx.strokeStyle = 'rgba(231,108,83,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hazard.x, hazard.y, hazard.radius, 0, TAU); ctx.fill(); ctx.stroke(); }
+}
+
+function drawSecretRoom() {
+  const room = game.secretRoom; if (!room.revealed) return; const color = room.cleared ? '#ef8ba3' : room.active ? '#ef5f83' : '#778c84'; ctx.save(); ctx.translate(room.x, room.y); ctx.rotate(game.time * .08);
+  ctx.fillStyle = `${color}0f`; ctx.strokeStyle = `${color}aa`; ctx.lineWidth = 2; ctx.setLineDash(room.active ? [] : [9, 7]); ctx.beginPath(); ctx.arc(0, 0, room.radius + Math.sin(game.time * 2) * 3, 0, TAU); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+  for (let ring = 0; ring < 2; ring++) { ctx.rotate(.55); ctx.strokeStyle = `${color}${ring ? '38' : '66'}`; polygon(0, 0, room.radius - 14 - ring * 15, 6 + ring * 2); ctx.stroke(); }
+  ctx.rotate(-game.time * .08 - 1.1); ctx.fillStyle = color; ctx.font = 'bold 19px Bahnschrift Condensed'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(room.cleared ? '✦' : room.active ? '◆' : '⌑', 0, 1); ctx.restore();
 }
 
 function drawMachine(machine) {
@@ -1114,6 +1244,7 @@ function drawMinimap() {
   const plot = (point, color, radius, square = false) => { const dx = clamp((point.x - p.x) / range, -.5, .5) * inner; const dy = clamp((point.y - p.y) / range, -.5, .5) * inner; const px = x + size / 2 + dx; const py = y + (size - 12) / 2 + dy; ctx.fillStyle = color; if (square) ctx.fillRect(px - radius, py - radius, radius * 2, radius * 2); else { ctx.beginPath(); ctx.arc(px, py, radius, 0, TAU); ctx.fill(); } };
   for (const drop of game.drops) plot(drop, drop.type === 'magnet' ? '#72c8ef' : '#e8b65e', 2.8, drop.type === 'scrap');
   for (const enemy of game.enemies) if (enemy.bossData || enemy.elite || enemy.objectiveTarget || enemy.siege) plot(enemy, enemy.bossData ? '#ee725f' : enemy.siege ? '#ef9858' : enemy.objectiveTarget ? game.stage.accent : '#e8bd65', enemy.bossData ? 4 : 2.5, enemy.elite || enemy.siege);
+  if (game.secretRoom.revealed || game.classId === 'archer') plot(game.secretRoom, game.secretRoom.cleared ? '#ef8ba3' : '#ef5f83', 3, true);
   if (game.stage.objective === 'escort') plot(game.escort, game.stage.accent, 3, true); if (game.stage.objective === 'zone') plot(game.zone, game.stage.accent, 3);
   ctx.fillStyle = game.spec.accent; ctx.translate(x + size / 2, y + (size - 12) / 2); ctx.rotate(p.facing); ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore();
   ctx.save(); ctx.fillStyle = '#72877e'; ctx.font = '700 6px Segoe UI'; ctx.textAlign = 'left'; ctx.fillText('КАРТА · XP СКРЫТ', x + 7, y + size - 6); ctx.restore();
@@ -1123,7 +1254,8 @@ function drawEffect(effect) {
   const t = clamp(effect.life / effect.maxLife, 0, 1); ctx.save(); ctx.globalAlpha = Math.min(1, t * 2); ctx.strokeStyle = effect.color || '#67e1c1'; ctx.fillStyle = effect.color || '#67e1c1';
   if (effect.type === 'slash') { const progress = 1 - t; ctx.lineWidth = 3 + t * 4; ctx.beginPath(); if (effect.full) ctx.arc(effect.x, effect.y, effect.radius * (.8 + progress * .2), effect.angle, effect.angle + TAU * progress); else ctx.arc(effect.x, effect.y, effect.radius, effect.angle - 1.05, effect.angle - 1.05 + 2.1 * Math.min(1, progress * 2)); ctx.stroke(); }
   else if (effect.type === 'lightning') { ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(effect.x, effect.y); const segments = 6; for (let i = 1; i < segments; i++) { const p = i / segments; ctx.lineTo(effect.x + (effect.x2 - effect.x) * p + (Math.random() - .5) * 12, effect.y + (effect.y2 - effect.y) * p + (Math.random() - .5) * 12); } ctx.lineTo(effect.x2, effect.y2); ctx.stroke(); }
-  else if (effect.type === 'rift') { ctx.translate(effect.x, effect.y); ctx.rotate(game.time * .6); ctx.lineWidth = 2; for (let ring = 0; ring < 3; ring++) { ctx.beginPath(); ctx.ellipse(0, 0, effect.radius * (1 - ring * .18), effect.radius * (.35 + ring * .06), ring * .7, 0, TAU); ctx.stroke(); } }
+  else if (effect.type === 'rift' || effect.type === 'singularity') { ctx.translate(effect.x, effect.y); ctx.rotate(game.time * (effect.type === 'singularity' ? 1.3 : .6)); ctx.lineWidth = 2; for (let ring = 0; ring < 3; ring++) { ctx.beginPath(); ctx.ellipse(0, 0, effect.radius * (1 - ring * .18), effect.radius * (.35 + ring * .06), ring * .7, 0, TAU); ctx.stroke(); } if (effect.type === 'singularity') { ctx.shadowBlur = 24; ctx.shadowColor = effect.color; ctx.beginPath(); ctx.arc(0, 0, 10 + effect.level * 3, 0, TAU); ctx.fill(); } }
+  else if (effect.type === 'afterimage') { ctx.translate(effect.x, effect.y); ctx.rotate(effect.angle); ctx.globalAlpha *= .24; ctx.fillRect(-effect.radius * .8, -effect.radius * .42, effect.radius * 1.6, effect.radius * .84); ctx.globalAlpha *= 2.5; ctx.strokeRect(-effect.radius * .8, -effect.radius * .42, effect.radius * 1.6, effect.radius * .84); }
   else if (effect.type === 'thorns') { ctx.translate(effect.x, effect.y); ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 24; i++) { const angle = i * TAU / 24; const outer = i % 2 ? effect.radius : effect.radius * .76; const x = Math.cos(angle) * outer; const y = Math.sin(angle) * outer; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.stroke(); }
   else if (effect.type === 'frost' || effect.type === 'explosion' || effect.type === 'overdrive') { const progress = 1 - t; ctx.lineWidth = 3 * t; ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * progress, 0, TAU); ctx.stroke(); if (effect.type === 'explosion') { ctx.globalAlpha *= .11; ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * progress, 0, TAU); ctx.fill(); } }
   else if (effect.type === 'warning') { ctx.lineWidth = 2 + (1 - t) * 4; ctx.setLineDash([8, 7]); ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.radius * (1.25 - (1 - t) * .25), 0, TAU); ctx.stroke(); ctx.setLineDash([]); }

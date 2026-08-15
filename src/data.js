@@ -2,23 +2,44 @@ export const CLASSES = {
   swordsman: {
     name: 'Мечник', title: 'Клятва Клинка', icon: '╱', image: 'assets/class-swordsman.webp',
     hp: 125, speed: 192, damage: 1.16, primary: 'blade', accent: '#e4b35f',
-    passive: 'Получает на 12% меньше контактного урона.', ability: 'Круговой разрез отражает вражеские снаряды.'
+    passive: 'Получает на 12% меньше контактного урона.', ability: 'Круговой разрез отражает вражеские снаряды.',
+    objective: 'Способность создаёт защитный контур рядом с важной целью.'
   },
   archer: {
     name: 'Лучник', title: 'Глаз Пустоши', icon: '➶', image: 'assets/class-archer.webp',
     hp: 92, speed: 232, damage: 1.04, primary: 'bow', accent: '#ef9e55',
-    passive: 'Каждое пятое попадание наносит критический урон.', ability: 'Выпускает веер из семи пробивающих стрел.'
+    passive: 'Каждое пятое попадание наносит критический урон.', ability: 'Выпускает веер из семи пробивающих стрел.',
+    objective: 'Сразу видит тайные комнаты и осадные цели на мини-карте.'
   },
   mage: {
     name: 'Маг', title: 'Хранитель Формулы', icon: '✧', image: 'assets/class-mage.webp',
     hp: 82, speed: 204, damage: 1.12, primary: 'arcana', accent: '#b893ff',
-    passive: 'Заклинания могут перескакивать между целями.', ability: 'Создаёт разлом, замедляющий и притягивающий врагов.'
+    passive: 'Заклинания могут перескакивать между целями.', ability: 'Создаёт разлом, замедляющий и притягивающий врагов.',
+    objective: 'На 25% быстрее активирует печати и заряжает безопасную зону.'
   },
   mechanist: {
     name: 'Механист', title: 'Руки Архива', icon: '⚙', image: 'assets/class-mechanist.webp',
     hp: 105, speed: 200, damage: 1.02, primary: 'repeater', accent: '#68dcc4',
-    passive: 'Боевой дрон самостоятельно выбирает цели.', ability: 'Перегружает устройства и вызывает второго дрона.'
+    passive: 'Боевой дрон самостоятельно выбирает цели.', ability: 'Перегружает устройства и вызывает второго дрона.',
+    objective: 'Медленно чинит защищаемые механизмы, находясь рядом.'
   }
+};
+
+export const RARITIES = {
+  common: { name: 'ОБЫЧНЫЙ', color: '#aeb8b2', weight: 58 },
+  rare: { name: 'РЕДКИЙ', color: '#58aef2', weight: 27 },
+  epic: { name: 'ЭПИЧЕСКИЙ', color: '#b77cff', weight: 11 },
+  legendary: { name: 'ЛЕГЕНДАРНЫЙ', color: '#f0bd58', weight: 4 },
+  secret: { name: 'СЕКРЕТНЫЙ', color: '#ef5f83', weight: 0 }
+};
+
+export const CONTRACTS = {
+  cull: { name: 'ЧИСТАЯ ЗОНА', icon: '✦', description: 'Уничтожить 75 противников.', reward: 24, type: 'kills' },
+  unbroken: { name: 'БЕЗ ОШИБОК', icon: '◇', description: 'Получить не больше пяти попаданий.', reward: 30, type: 'hits' },
+  discipline: { name: 'ПОЛНЫЙ ЗАРЯД', icon: 'ϟ', description: 'Использовать классовую способность восемь раз.', reward: 22, type: 'abilities' },
+  pristine: { name: 'ЦЕЛЬ ПРЕЖДЕ ВСЕГО', icon: '⬡', description: 'Завершить уровень, сохранив цели не меньше 70% прочности.', reward: 34, type: 'objective', objectives: ['defense', 'escort'] },
+  explorer: { name: 'ЗА СТЕНОЙ', icon: '⌖', description: 'Найти и зачистить тайную комнату.', reward: 28, type: 'secret' },
+  noScrap: { name: 'БЕЗ РЕМОНТА', icon: '⚙', description: 'Не подбирать Scrap до завершения сектора.', reward: 27, type: 'scrap' }
 };
 
 export const SPECIALIZATIONS = {
@@ -186,6 +207,34 @@ export const UPGRADES = {
     name: 'Резервный Конденсатор', icon: 'ϟ', category: 'artifacts', max: 3, accent: '#7ebee9',
     descriptions: ['Перезарядка способности -10%.', 'Перезарядка способности ещё -10%.', 'Использование способности ненадолго ускоряет атаки.']
   },
+  afterimage: {
+    name: 'След Разгона', icon: '»', category: 'artifacts', max: 3, accent: '#5fd9c4',
+    descriptions: ['Рывок оставляет повреждающий след.', 'След становится шире и сильнее.', 'В конце рывка возникает второй импульс.']
+  },
+  overcharger: {
+    name: 'Хищный Контур', icon: '↻', category: 'artifacts', max: 3, accent: '#64bdf0',
+    descriptions: ['Победы немного ускоряют классовую способность.', 'Сокращение перезарядки усиливается.', 'Элита мгновенно возвращает часть заряда.']
+  },
+  echoShell: {
+    name: 'Оболочка Тишины', icon: '◈', category: 'artifacts', max: 3, accent: '#b77cff',
+    descriptions: ['После семи секунд без урона атаки сильнее.', 'Бонус урона возрастает.', 'Тишина также даёт дополнительную броню.']
+  },
+  phaseHeart: {
+    name: 'Фазовое Сердце', icon: '♥', category: 'artifacts', max: 1, accent: '#f0bd58',
+    descriptions: ['Один раз предотвращает поражение, восстанавливает 35% здоровья и создаёт волну.']
+  },
+  nova: {
+    name: 'Звёздный Разрядник', icon: '✺', category: 'weapons', max: 4, accent: '#f0bd58',
+    descriptions: ['Периодически выпускает мощную круговую волну.', 'Волна заряжается быстрее.', 'Добавляет внешний разряд.', 'Нова наносит больше урона элите и боссам.']
+  },
+  singularity: {
+    name: 'Нулевая Сингулярность', icon: '●', category: 'weapons', max: 3, accent: '#ef5f83',
+    descriptions: ['Создаёт нестабильную точку притяжения.', 'Область становится больше и опаснее.', 'После схлопывания возникает ударная волна.']
+  },
+  archiveKey: {
+    name: 'Ключ Непрочитанной Двери', icon: '⌑', category: 'artifacts', max: 1, accent: '#ef5f83',
+    descriptions: ['Повышает получаемый опыт и шанс увидеть предметы высокой редкости.']
+  },
   aegis: {
     name: 'Контур Эгиды', icon: '⬡', category: 'talents', classes: ['swordsman'], spec: 'guardian', max: 3, accent: '#79d7be',
     descriptions: ['Каждые 18 секунд блокирует попадание.', 'Блок создаёт отражающую волну.', 'Время восстановления блока сокращается.']
@@ -251,6 +300,15 @@ export const UPGRADES = {
     descriptions: ['Дроны быстрее находят следующую цель.', 'Каждая четвёртая очередь пробивает врага.', 'Все дроны повторяют классовую способность.']
   }
 };
+
+const rarityGroups = {
+  rare: ['halo', 'mines', 'recovery', 'fortune', 'force', 'salvage', 'capacitor', 'afterimage', 'overcharger', 'aegis', 'bastion', 'severance', 'momentum', 'preyMark', 'ghostQuiver', 'voltage', 'stormQuiver', 'continuum', 'spellguard', 'repairProtocol', 'targetMesh'],
+  epic: ['thorns', 'storm', 'frost', 'focus', 'echoShell', 'gravityWell', 'detonation', 'turretKit', 'swarmCore'],
+  legendary: ['phaseHeart', 'nova'],
+  secret: ['singularity', 'archiveKey']
+};
+for (const [rarity, ids] of Object.entries(rarityGroups)) for (const id of ids) UPGRADES[id].rarity = rarity;
+for (const item of Object.values(UPGRADES)) item.rarity ||= 'common';
 
 export const FUSIONS = {
   bulwark: {

@@ -47,6 +47,16 @@ export function weightedPick(entries, random = Math.random) {
   return entries.at(-1)?.value;
 }
 
+export function weightedUnique(items, count, weightOf, random = Math.random) {
+  const pool = [...items];
+  const result = [];
+  while (pool.length && result.length < count) {
+    const choice = weightedPick(pool.map(value => ({ value, weight: weightOf(value) })), random);
+    result.push(choice); pool.splice(pool.indexOf(choice), 1);
+  }
+  return result;
+}
+
 export function circleHit(a, b) {
   const radius = a.radius + b.radius;
   return distanceSq(a, b) <= radius * radius;

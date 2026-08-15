@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { absorbDamage, chooseUnique, circleHit, formatTime, mulberry32, normalize, phaseAt, spawnInterval, weightedPick, xpForLevel } from '../src/core.js';
+import { absorbDamage, chooseUnique, circleHit, formatTime, mulberry32, normalize, phaseAt, spawnInterval, weightedPick, weightedUnique, xpForLevel } from '../src/core.js';
 
 test('formatTime produces a stable game timer', () => {
   assert.equal(formatTime(0), '00:00');
@@ -42,6 +42,13 @@ test('unique choices never duplicate an option', () => {
 test('weighted selection is deterministic with a seeded generator', () => {
   const entries = [{ value: 'common', weight: 10 }, { value: 'rare', weight: 1 }];
   assert.equal(weightedPick(entries, mulberry32(2)), weightedPick(entries, mulberry32(2)));
+});
+
+test('weighted choices stay unique and favour available weights', () => {
+  const items = ['common', 'rare', 'epic'];
+  const choices = weightedUnique(items, 3, item => ({ common: 10, rare: 3, epic: 1 })[item], mulberry32(12));
+  assert.equal(choices.length, 3);
+  assert.equal(new Set(choices).size, 3);
 });
 
 test('circle collision includes touching edges', () => {

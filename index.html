@@ -20,7 +20,7 @@
       <header class="topbar">
         <div class="sigil"><i></i><span>C/S</span></div>
         <span class="eyebrow">АРХИВ // ПРОТОКОЛ ПРОБУЖДЕНИЯ</span>
-        <span class="build">CAMPAIGN · 0.3.1</span>
+        <span class="build">CAMPAIGN · 0.4.0</span>
       </header>
       <div class="menu-copy">
         <p class="kicker"><span></span> ДРЕВНИЙ МЕХАНИЗМ ВЫБИРАЕТ НОСИТЕЛЯ</p>
@@ -64,6 +64,7 @@
       </header>
       <div id="classCards" class="class-cards"></div>
       <section class="spec-section"><div class="spec-heading"><span class="eyebrow">СПЕЦИАЛИЗАЦИЯ ДО ЗАБЕГА</span><strong id="chosenSpecName">СТРАЖ</strong></div><div id="specCards" class="spec-cards"></div></section>
+      <section class="contract-section"><div class="contract-heading"><span class="eyebrow">ДОПОЛНИТЕЛЬНОЕ ИСПЫТАНИЕ</span><strong>КОНТРАКТ</strong></div><div id="contractCards" class="contract-cards"></div></section>
       <footer class="class-footer"><div><span class="eyebrow">ВЫБРАН</span><strong id="chosenClassName">МЕЧНИК // СТРАЖ</strong><p id="chosenClassAbility">Круговой разрез отражает вражеские снаряды.</p></div><button id="startStage" class="primary"><span>ВОЙТИ В СЕКТОР</span><b>↗</b></button></footer>
     </section>
 
@@ -83,7 +84,7 @@
       <div class="hud-brand"><span id="hudClassIcon">C/S</span><small>СЕКТОР <b id="wave">01</b></small></div>
       <div class="timer"><strong id="timer">03:00</strong><small id="phaseName">ВНЕШНИЙ КРУГ</small></div>
       <div class="hud-right"><div><small>УРОВЕНЬ</small><strong id="level">1</strong></div><div><small>УНИЧТОЖЕНО</small><strong id="kills">0</strong></div><button id="pauseButton" aria-label="Пауза">Ⅱ</button></div>
-      <div id="missionTracker" class="mission-tracker"><span>ЗАДАНИЕ</span><strong id="missionText">ВЫЖИТЬ</strong><i><b id="missionFill"></b></i></div>
+      <div id="missionTracker" class="mission-tracker"><span>ЗАДАНИЕ</span><strong id="missionText">ВЫЖИТЬ</strong><small id="contractText">БЕЗ КОНТРАКТА</small><i><b id="missionFill"></b></i></div>
     </section>
 
     <section id="status" class="status hidden">
@@ -98,12 +99,13 @@
 
     <section id="pause" class="screen compact-screen hidden"><div class="panel pause-panel"><span class="eyebrow">ПРОТОКОЛ ПРИОСТАНОВЛЕН</span><h2>ТИШИНА МЕЖДУ УДАРАМИ</h2><p>Сектор продолжит движение, когда ты вернёшься.</p><button id="resume" class="primary"><span>ПРОДОЛЖИТЬ</span><b>↗</b></button><button id="restart" class="ghost wide">НАЧАТЬ УРОВЕНЬ ЗАНОВО</button><button id="quit" class="text-button">ВЕРНУТЬСЯ К КАРТЕ</button></div></section>
 
-    <section id="end" class="screen compact-screen hidden"><div class="panel end-panel"><span id="endEyebrow" class="eyebrow">СЕКТОР ЗАВЕРШЁН</span><h2 id="endTitle">МАРШРУТ ВОССТАНОВЛЕН</h2><p id="endText">Архив запомнил всё найденное.</p><div class="results"><div><strong id="resultTime">00:00</strong><span>ВРЕМЯ</span></div><div><strong id="resultKills">0</strong><span>ЦЕЛЕЙ</span></div><div><strong id="resultEchoes">+0</strong><span>ЭХО</span></div></div><button id="again" class="primary"><span>ПОВТОРИТЬ УРОВЕНЬ</span><b>↗</b></button><button id="nextStage" class="ghost wide">К КАРТЕ КАМПАНИИ</button><button id="endMenu" class="text-button">В ГЛАВНОЕ МЕНЮ</button></div></section>
+    <section id="end" class="screen compact-screen hidden"><div class="panel end-panel"><span id="endEyebrow" class="eyebrow">СЕКТОР ЗАВЕРШЁН</span><h2 id="endTitle">МАРШРУТ ВОССТАНОВЛЕН</h2><p id="endText">Архив запомнил всё найденное.</p><div class="results"><div><strong id="resultTime">00:00</strong><span>ВРЕМЯ</span></div><div><strong id="resultKills">0</strong><span>ЦЕЛЕЙ</span></div><div><strong id="resultEchoes">+0</strong><span>ЭХО</span></div><div><strong id="resultContract">—</strong><span>КОНТРАКТ</span></div></div><button id="again" class="primary"><span>ПОВТОРИТЬ УРОВЕНЬ</span><b>↗</b></button><button id="nextStage" class="ghost wide">К КАРТЕ КАМПАНИИ</button><button id="endMenu" class="text-button">В ГЛАВНОЕ МЕНЮ</button></div></section>
 
     <section id="archive" class="screen compact-screen hidden"><div class="panel archive-panel"><button class="close" data-close="archive" aria-label="Закрыть">×</button><span class="eyebrow">ПОСТОЯННАЯ ПАМЯТЬ</span><h2>АРХИВ ЦИКЛОВ</h2><p>Эхо и открытия сохраняются даже после поражения. Усиль следующих носителей.</p><div class="archive-stats"><div><strong id="totalEchoes">0</strong><span>ДОСТУПНО ЭХО</span></div><div><strong id="bestTime">00:00</strong><span>ЛУЧШИЙ ЗАБЕГ</span></div><div><strong id="totalKills">0</strong><span>ВСЕГО ЦЕЛЕЙ</span></div></div><div id="perks" class="perks"></div></div></section>
 
     <section id="settings" class="screen compact-screen hidden"><div class="panel settings-panel"><button class="close" data-close="settings" aria-label="Закрыть">×</button><span class="eyebrow">ПАРАМЕТРЫ СИСТЕМЫ</span><h2>НАСТРОЙКИ</h2><label><span>Громкость</span><input id="volume" type="range" min="0" max="100" value="65"></label><label><span>Тряска камеры</span><input id="shake" type="checkbox" checked><i></i></label><label><span>Интенсивные эффекты</span><input id="effects" type="checkbox" checked><i></i></label><p>Настройки и прогресс сохраняются в этом браузере автоматически.</p></div></section>
 
+    <div id="victoryScene" class="victory-scene"><span>СЕКТОР ОСВОБОЖДЁН</span><strong id="victoryTitle">МАРШРУТ ВОССТАНОВЛЕН</strong><i></i></div>
     <div id="toast" class="toast"></div><div id="announcement" class="announcement"><small></small><strong></strong><p></p></div>
     <div id="touch" class="touch hidden"><div id="joystick" class="joystick"><i></i></div><button id="touchDash">⇥<small>РЫВОК</small></button><button id="touchAbility">✦<small>НАВЫК</small></button></div>
   </main>
